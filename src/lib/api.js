@@ -122,6 +122,17 @@ export async function loadUser(pseudo) {
   };
 }
 
+export async function loadUserStats(pseudo) {
+  const { data, error } = await supabase.rpc("user_stats", { p_pseudo: pseudo });
+  if (error || !data || data.length === 0) return { duelsPlayed: 0, wins: 0, winPct: 0 };
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    duelsPlayed: row.duels_played || 0,
+    wins: row.wins || 0,
+    winPct: row.duels_played > 0 ? Math.round((100 * row.wins) / row.duels_played) : 0,
+  };
+}
+
 export async function hasVoted(duelId, pseudo) {
   if (!pseudo) return false;
   const { data, error } = await supabase.rpc("has_voted", { p_duel_id: duelId, p_pseudo: pseudo });
