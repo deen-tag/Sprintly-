@@ -232,6 +232,68 @@ export async function sendMagicLink(email) {
   if (error) throw new Error("Impossible d'envoyer l'email. Vérifie l'adresse.");
 }
 
+export async function signIn(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: email.trim(),
+    password,
+  });
+  if (error) throw new Error("Email ou mot de passe incorrect.");
+  return data;
+}
+
+export async function signUp(email, password) {
+  const { data, error } = await supabase.auth.signUp({
+    email: email.trim(),
+    password,
+    options: { emailRedirectTo: window.location.origin },
+  });
+  if (error) {
+    if (/already registered|already been registered|user already exists/i.test(error.message)) {
+      throw new Error("Un compte existe déjà avec cet email. Connecte-toi plutôt.");
+    }
+    throw new Error(error.message);
+  }
+  return data;
+}
+
+// Utilisé par le parcours de participation existant : si l'utilisateur n'a
+// pas encore de compte, on le crée ; sinon on tente la connexion.
+export async function signInOrSignUp(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: email.trim(),
+    password,
+  });
+  if (!error) return data;
+
+  const { data: signupData, error: signupError } = await supabase.auth.signUp({
+    email: email.trim(),
+    password,
+    options: { emailRedirectTo: window.location.origin },
+  });
+  if (signupError) throw new Error("Impossible de créer ou connecter ce compte.");
+  return signupData;
+}
+
+export async function signInWithGoogle() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: window.location.href },
+  });
+  if (error) throw new Error("Connexion Google indisponible pour le moment.");
+}
+
+export async function sendPasswordReset(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: window.location.href,
+  });
+  if (error) throw new Error("Impossible d'envoyer le lien de réinitialisation.");
+}
+
+export async function updatePassword(password) {
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw new Error("Impossible de mettre à jour le mot de passe.");
+}
+
 export async function getSession() {
   const { data } = await supabase.auth.getSession();
   return data.session;
