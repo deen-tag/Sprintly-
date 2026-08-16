@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Play, Trophy, Dices, Share2, Swords, User, Flame, Check, Lock,
   Plus, ArrowLeft, ExternalLink, Copy, RefreshCw, Users, Clock, X,
@@ -101,14 +101,15 @@ function Field({ label, children }) {
   );
 }
 
-function TextInput({ value, onChange, placeholder, mono: useMono }) {
+function TextInput({ value, onChange, placeholder, mono: useMono, disabled }) {
   return (
     <input
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
+      disabled={disabled}
       className="w-full rounded-2xl px-4 py-3.5 outline-none"
-      style={{ background: INK2, border: `1px solid #FFFFFF18`, color: CHALK, fontSize: 14, ...(useMono ? mono : body) }}
+      style={{ background: INK2, border: `1px solid #FFFFFF18`, color: CHALK, fontSize: 14, opacity: disabled ? 0.6 : 1, ...(useMono ? mono : body) }}
     />
   );
 }
@@ -246,49 +247,128 @@ function Toast({ message, onDone }) {
 
 /* ---------------- Pseudo bar (persistent identity within session) ---------------- */
 
-function PseudoBar({ pseudo, setPseudo, nav }) {
-  const [editing, setEditing] = useState(!pseudo);
-  const [draft, setDraft] = useState(pseudo || "");
+function AccountBar({ nav, toast }) {
+  const [session, setSession] = useState(undefined); // undefined = chargement
+  const [myPseudo, setMyPseudoState] = useState(null);
+  const [step, setStep] = useState("idle"); // idle | email | sent | pseudo
+  const [email, setEmail] = useState("");
+  const [pseudoDraft, setPseudoDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    const s = await api.getSession();
+    setSession(s);
+    setMyPseudoState(s ? await api.getMyPseudo() : null);
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => api.onAuthStateChange(() => refresh()), [refresh]);
+
+  // Juste après la connexion, si le compte n'a pas encore de pseudo, on le demande.
+  useEffect(() => {
+    if (session && myPseudo === null && step === "idle") setStep("pseudo");
+  }, [session, myPseudo, step]);
+
+  const sendLink = async () => {
+    if (!email.trim() || !email.includes("@")) { toast("Ajoute une adresse email valide."); return; }
+    setBusy(true);
+    try {
+      await api.sendMagicLink(email.trim());
+      setStep("sent");
+    } catch (e) {
+      toast(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const savePseudo = async () => {
+    if (!pseudoDraft.trim()) { toast("Choisis un pseudo."); return; }
+    setBusy(true);
+    try {
+      const p = await api.setMyPseudo(pseudoDraft.trim());
+      setMyPseudoState(p);
+      setStep("idle");
+    } catch (e) {
+      toast(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (session === undefined) return <div style={{ width: 90, height: 28 }} />;
+
+  if (step === "email") {
+    return (
+      <div className="flex items-center gap-2">
+        <input
+          autoFocus value={email} onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") sendLink(); }}
+          placeholder="ton email"
+          className="rounded-full px-3 py-1.5 outline-none"
+          style={{ background: INK2, border: `1px solid ${LIME}55`, color: CHALK, fontSize: 12, width: 150, ...body }}
+        />
+        <button onClick={sendLink} disabled={busy} className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: LIME }}>
+          <Check size={13} color={INK} />
+        </button>
+      </div>
+    );
+  }
+
+  if (step === "sent") {
+    return <div style={{ fontSize: 11, color: MUTE, ...body }}>✉️ Vérifie ta boîte mail</div>;
+  }
+
+  if (step === "pseudo") {
+    return (
+      <div className="flex items-center gap-2">
+        <input
+          autoFocus value={pseudoDraft} onChange={(e) => setPseudoDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") savePseudo(); }}
+          placeholder="ton pseudo"
+          className="rounded-full px-3 py-1.5 outline-none"
+          style={{ background: INK2, border: `1px solid ${LIME}55`, color: CHALK, fontSize: 12, width: 120, ...body }}
+        />
+        <button onClick={savePseudo} disabled={busy} className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: LIME }}>
+          <Check size={13} color={INK} />
+        </button>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <button
+        onClick={() => setStep("email")}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+        style={{ background: LIME, border: "none", cursor: "pointer" }}
+      >
+        <User size={12} color={INK} />
+        <span style={{ fontSize: 12, color: INK, fontWeight: 700, ...body }}>Se connecter</span>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => nav("profile")}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+      style={{ background: INK2, border: "1px solid #FFFFFF18", cursor: "pointer" }}
+    >
+      <User size={12} color={MUTE} />
+      <span style={{ fontSize: 12, color: CHALK, ...body }}>{myPseudo || "…"}</span>
+    </button>
+  );
+}
+
+function HeaderBar({ nav, toast }) {
   return (
     <div className="w-full" style={{ borderBottom: "1px solid #FFFFFF0F", background: "#070A10" }}>
       <div className="max-w-2xl mx-auto px-5 py-2.5 flex items-center justify-between gap-3">
         <button onClick={() => nav("home")} className="flex items-center gap-2" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
           <div style={{ ...display, fontSize: 16, color: LIME, letterSpacing: "0.08em" }}>SPRINTLY</div>
         </button>
-        {editing ? (
-          <div className="flex items-center gap-2">
-            <input
-              autoFocus
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && draft.trim()) {
-                  setPseudo(draft.trim());
-                  setEditing(false);
-                }
-              }}
-              placeholder="ton pseudo"
-              className="rounded-full px-3 py-1.5 outline-none"
-              style={{ background: INK2, border: `1px solid ${LIME}55`, color: CHALK, fontSize: 12, width: 120, ...body }}
-            />
-            <button
-              onClick={() => { if (draft.trim()) { setPseudo(draft.trim()); setEditing(false); } }}
-              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background: LIME }}
-            >
-              <Check size={13} color={INK} />
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => { setDraft(pseudo); setEditing(true); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-            style={{ background: INK2, border: "1px solid #FFFFFF18", cursor: "pointer" }}
-          >
-            <User size={12} color={MUTE} />
-            <span style={{ fontSize: 12, color: CHALK, ...body }}>{pseudo}</span>
-          </button>
-        )}
+        <AccountBar nav={nav} toast={toast} />
       </div>
     </div>
   );
@@ -296,7 +376,7 @@ function PseudoBar({ pseudo, setPseudo, nav }) {
 
 function requirePseudo(pseudo, setToast, openEditor) {
   if (!pseudo) {
-    setToast("Choisis d'abord un pseudo, en haut de l'écran →");
+    setToast("Connecte-toi d'abord, en haut de l'écran →");
     openEditor?.();
     return false;
   }
@@ -496,7 +576,6 @@ function CreatePage({ nav, pseudo, toast }) {
       const ch = await api.createChallenge({
         emoji: emoji || "🔥",
         title: title.trim().toUpperCase(),
-        author: pseudo,
         description: desc.trim(),
         rules: ["Un seul essai visible", "Lien TikTok, Instagram ou YouTube", "Sois fair-play"],
         durationMinutes,
@@ -564,7 +643,7 @@ function ChallengePage({ id, nav, pseudo, toast }) {
       // Le tirage au sort et la création des duels sont faits de façon
       // atomique côté base de données (fonction draw_challenge), donc
       // aucun risque de collision entre deux clics simultanés.
-      await api.drawChallenge(id, pseudo);
+      await api.drawChallenge(id);
       await refresh();
     } catch (e) {
       toast(e.message);
@@ -633,18 +712,26 @@ function ChallengePage({ id, nav, pseudo, toast }) {
   );
 }
 
-function JoinPage({ id, nav, pseudo, toast }) {
+const PENDING_JOIN_KEY = "sprintly_pending_join";
+
+function JoinPage({ id, nav, toast }) {
   const [link, setLink] = useState("");
-  const [name, setName] = useState(pseudo || "");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState("form"); // "form" | "email" | "sent"
+  const [myPseudo, setMyPseudo] = useState(null);
 
-  const submit = async () => {
-    if (!link.trim() || !name.trim()) { toast("Ajoute ton lien vidéo et ton pseudo."); return; }
-    if (!confirm) { toast("Confirme que la vidéo est la tienne."); return; }
+  useEffect(() => {
+    api.getMyPseudo().then((p) => { if (p) { setMyPseudo(p); setName(p); } });
+  }, []);
+
+  const doJoin = async () => {
     setBusy(true);
     try {
       await api.joinChallenge(id, name.trim(), link.trim());
+      localStorage.removeItem(PENDING_JOIN_KEY);
       toast("Participation envoyée 🎉");
       nav("challenge", { id });
     } catch (e) {
@@ -654,6 +741,61 @@ function JoinPage({ id, nav, pseudo, toast }) {
     }
   };
 
+  const submit = async () => {
+    if (!link.trim() || !name.trim()) { toast("Ajoute ton lien vidéo et ton pseudo."); return; }
+    if (!confirm) { toast("Confirme que la vidéo est la tienne."); return; }
+    const session = await api.getSession();
+    if (session) { await doJoin(); return; }
+    // Pas encore connecté : on garde le formulaire de côté et on ne demande
+    // l'email qu'à cette dernière étape, pour ne perdre personne en route.
+    localStorage.setItem(PENDING_JOIN_KEY, JSON.stringify({ id, name: name.trim(), link: link.trim() }));
+    setStep("email");
+  };
+
+  const sendLink = async () => {
+    if (!email.trim() || !email.includes("@")) { toast("Ajoute une adresse email valide."); return; }
+    setBusy(true);
+    try {
+      await api.sendMagicLink(email.trim());
+      setStep("sent");
+    } catch (e) {
+      toast(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (step === "sent") {
+    return (
+      <div className="max-w-2xl mx-auto w-full px-5 pb-10 text-center">
+        <div style={{ fontSize: 44, marginBottom: 12 }}>✉️</div>
+        <div style={{ ...display, fontSize: 22, marginBottom: 8 }}>VÉRIFIE TA BOÎTE MAIL</div>
+        <div style={{ fontSize: 13, color: MUTE, lineHeight: 1.5 }}>
+          On t'a envoyé un lien à <span style={{ color: CHALK }}>{email}</span>. Clique dessus,
+          tu reviens ici et ta participation part automatiquement — pas besoin de tout retaper.
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "email") {
+    return (
+      <div className="max-w-2xl mx-auto w-full px-5 pb-10">
+        <button onClick={() => setStep("form")} className="flex items-center gap-2 mb-5" style={{ background: "transparent", border: "none", color: MUTE, cursor: "pointer", fontSize: 12 }}>
+          <ArrowLeft size={14} /> Retour
+        </button>
+        <div style={{ ...display, fontSize: 22, marginBottom: 8 }}>DERNIÈRE ÉTAPE</div>
+        <div style={{ fontSize: 13, color: MUTE, marginBottom: 20, lineHeight: 1.5 }}>
+          Ton email sert juste à retrouver tes défis et tes vidéos plus tard. Pas de mot de passe.
+        </div>
+        <Field label="Ton email">
+          <TextInput value={email} onChange={setEmail} placeholder="toi@email.com" mono />
+        </Field>
+        <Button onClick={sendLink} disabled={busy}>{busy ? "Envoi…" : "Recevoir mon lien de connexion"}</Button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto w-full px-5 pb-10">
       <div style={{ fontSize: 13, color: MUTE, marginBottom: 20 }}>30 secondes. Colle simplement ton lien.</div>
@@ -661,7 +803,7 @@ function JoinPage({ id, nav, pseudo, toast }) {
         <TextInput value={link} onChange={setLink} placeholder="tiktok.com/@toi/video/..." mono />
       </Field>
       <Field label="Ton pseudo">
-        <TextInput value={name} onChange={setName} placeholder="ton pseudo" />
+        <TextInput value={name} onChange={setName} placeholder="ton pseudo" disabled={!!myPseudo} />
       </Field>
       <button onClick={() => setConfirm((v) => !v)} className="flex items-start gap-2 mb-5 text-left" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
         <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: confirm ? LIME : "transparent", border: `1px solid ${confirm ? LIME : "#FFFFFF44"}` }}>
@@ -722,8 +864,8 @@ function DuelPage({ id, duelId, nav, pseudo, toast }) {
   }, [id, toast]);
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => {
-    if (pseudo) api.hasVoted(duelId, pseudo).then(setVoted);
-  }, [duelId, pseudo]);
+    api.hasVoted(duelId).then(setVoted);
+  }, [duelId]);
   // horloge en direct pour le temps restant avant clôture
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -738,12 +880,11 @@ function DuelPage({ id, duelId, nav, pseudo, toast }) {
   const isParticipant = pseudo && (duel.a?.pseudo === pseudo || duel.b?.pseudo === pseudo);
 
   const vote = async (side) => {
-    if (!requirePseudo(pseudo, toast)) return;
     if (isParticipant) { toast("Tu ne peux pas voter sur ton propre duel."); return; }
     if (hasVoted) { toast("Tu as déjà voté sur ce duel."); return; }
     if (duel.closed) { toast("Ce duel est clôturé."); return; }
     try {
-      await api.castVote(duel.id, pseudo, side);
+      await api.castVote(duel.id, side);
       setVoted(true);
       setChosenSide(side);
       await refresh();
@@ -878,6 +1019,7 @@ function ProfilePage({ pseudo, nav, toast }) {
   const [user, setUser] = useState(undefined);
   const [stats, setStats] = useState(null);
   const [participations, setParticipations] = useState([]);
+  const [isMe, setIsMe] = useState(false);
 
   const search = useCallback(async (p) => {
     if (!p) return;
@@ -885,13 +1027,27 @@ function ProfilePage({ pseudo, nav, toast }) {
     setStats(await api.loadUserStats(p));
     setParticipations(await api.loadMyParticipations(p));
   }, []);
-  useEffect(() => { search(pseudo); }, [pseudo, search]);
+
+  // À l'arrivée sur la page, si un compte est connecté, on affiche direct
+  // son activité (défis, vidéos, trophées) sans qu'il ait à taper son pseudo.
+  useEffect(() => {
+    (async () => {
+      const myPseudo = await api.getMyPseudo();
+      if (myPseudo) {
+        setName(myPseudo);
+        setIsMe(true);
+        search(myPseudo);
+      } else if (pseudo) {
+        search(pseudo);
+      }
+    })();
+  }, [pseudo, search]);
 
   return (
     <div className="max-w-2xl mx-auto w-full px-5 pb-10">
-      <Field label="Voir le profil de">
+      <Field label={isMe ? "Mon activité" : "Voir le profil de"}>
         <div className="flex gap-2">
-          <div className="flex-1"><TextInput value={name} onChange={setName} placeholder="pseudo" /></div>
+          <div className="flex-1"><TextInput value={name} onChange={(v) => { setName(v); setIsMe(false); }} placeholder="pseudo" /></div>
           <button onClick={() => search(name)} className="px-4 rounded-2xl" style={{ background: LIME, border: "none", cursor: "pointer" }}><User size={16} color={INK} /></button>
         </div>
       </Field>
@@ -909,6 +1065,15 @@ function ProfilePage({ pseudo, nav, toast }) {
               <div style={{ fontSize: 11, color: MUTE }}>{user.trophies.length} trophée{user.trophies.length > 1 ? "s" : ""}</div>
             </div>
           </div>
+          {isMe && (
+            <button
+              onClick={async () => { await api.signOut(); toast("Déconnecté."); setUser(undefined); setName(""); setIsMe(false); }}
+              className="mb-5"
+              style={{ fontSize: 12, color: MUTE, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}
+            >
+              Se déconnecter
+            </button>
+          )}
           {stats && stats.duelsPlayed > 0 && (
             <div className="flex gap-2 mb-5">
               <div className="flex-1 rounded-2xl p-3 text-center" style={{ background: INK2, border: "1px solid #FFFFFF10" }}>
@@ -1231,9 +1396,8 @@ function routeToHash(view, params = {}) {
 
 export default function SprintlyApp() {
   const [route, setRoute] = useState(() => (typeof window !== "undefined" ? parseHash() : { view: "home" }));
-  const [pseudo, setPseudo] = useState("");
+  const [pseudo, setPseudoState] = useState(null); // pseudo lié au compte connecté, ou null
   const [toastMsg, setToastMsg] = useState(null);
-  const pseudoBarRef = useRef(null);
 
   useEffect(() => {
     const onHash = () => setRoute(parseHash());
@@ -1243,6 +1407,35 @@ export default function SprintlyApp() {
 
   const nav = (view, params) => { window.location.hash = routeToHash(view, params); };
   const toast = (msg) => setToastMsg(msg);
+
+  // Le pseudo utilisé partout dans l'app (créer un défi, lancer un tirage,
+  // voir "c'est mon duel") suit désormais le compte réellement connecté.
+  useEffect(() => {
+    const sync = () => api.getMyPseudo().then(setPseudoState).catch(() => setPseudoState(null));
+    sync();
+    return api.onAuthStateChange(sync);
+  }, []);
+
+  // Après un clic sur le lien magique reçu par email, l'utilisateur revient
+  // ici déjà connecté : on termine automatiquement l'envoi de sa vidéo,
+  // sans qu'il ait à retaper quoi que ce soit.
+  useEffect(() => {
+    return api.onAuthStateChange(async (session) => {
+      if (!session) return;
+      const raw = localStorage.getItem(PENDING_JOIN_KEY);
+      if (!raw) return;
+      try {
+        const pending = JSON.parse(raw);
+        await api.joinChallenge(pending.id, pending.name, pending.link);
+        localStorage.removeItem(PENDING_JOIN_KEY);
+        toast("Participation envoyée 🎉");
+        nav("challenge", { id: pending.id });
+      } catch (e) {
+        localStorage.removeItem(PENDING_JOIN_KEY);
+        toast(e.message);
+      }
+    });
+  }, []);
 
   if (route.view === "admin") return <AdminPage />;
 
@@ -1271,7 +1464,7 @@ export default function SprintlyApp() {
   return (
     <div className="w-full flex flex-col" style={{ minHeight: "100dvh", background: INK, color: CHALK, ...body }}>
       <style>{FONTS}</style>
-      <PseudoBar pseudo={pseudo} setPseudo={setPseudo} nav={nav} />
+      <HeaderBar nav={nav} toast={toast} />
       <div className="max-w-2xl mx-auto w-full px-5 pt-2">
         <Seam progress={100} />
       </div>
@@ -1290,7 +1483,7 @@ export default function SprintlyApp() {
         {route.view === "browse" && <BrowsePage initialTab={route.tab} nav={nav} toast={toast} />}
         {route.view === "create" && <CreatePage nav={nav} pseudo={pseudo} toast={toast} />}
         {route.view === "challenge" && <ChallengePage id={route.id} nav={nav} pseudo={pseudo} toast={toast} />}
-        {route.view === "join" && <JoinPage id={route.id} nav={nav} pseudo={pseudo} toast={toast} />}
+        {route.view === "join" && <JoinPage id={route.id} nav={nav} toast={toast} />}
         {route.view === "duels" && <DuelsListPage id={route.id} nav={nav} pseudo={pseudo} />}
         {route.view === "duel" && <DuelPage id={route.id} duelId={route.duelId} nav={nav} pseudo={pseudo} toast={toast} />}
         {route.view === "profile" && <ProfilePage pseudo={pseudo} nav={nav} toast={toast} />}
