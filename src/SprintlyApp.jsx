@@ -307,9 +307,6 @@ function requirePseudo(pseudo, setToast, openEditor) {
 
 function HomePage({ nav, toast }) {
   const [index, setIndex] = useState(null);
-  const [showAllOpen, setShowAllOpen] = useState(false);
-  const [showAllDrawn, setShowAllDrawn] = useState(false);
-  const [showClosed, setShowClosed] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -324,23 +321,20 @@ function HomePage({ nav, toast }) {
   if (index === null) return <Loading />;
 
   const drawn = index.filter((c) => c.status === "drawn");
-  const open = [...index.filter((c) => c.status === "open")].sort((a, b) => a.deadline - b.deadline);
+  const open = index.filter((c) => c.status === "open");
   const closed = index.filter((c) => c.status === "closed");
-  const PAGE = 5;
+  const active = [...drawn, ...open].sort((a, b) => b.participantsCount - a.participantsCount);
+  const featured = active[0] || null;
+  const popular = active.slice(1, 4);
 
-  const ChallengeCard = ({ c }) => (
-    <button
-      onClick={() => nav("challenge", { id: c.id })}
-      className="rounded-3xl p-4 relative overflow-hidden text-left"
-      style={{ background: `linear-gradient(135deg, ${CORAL}22, ${INK2} 60%, ${COBALT}22)`, border: `1px solid #FFFFFF14`, cursor: "pointer" }}
-    >
-      <div style={{ ...display, fontSize: 28, lineHeight: "0.95" }}>{c.emoji} {c.title}</div>
-      <div className="flex items-center gap-2 mt-3">
-        <Chip color={LIME}><Users size={11} className="inline mr-1" />{c.participantsCount} participants</Chip>
-        <Chip color={c.status === "drawn" ? GOLD : CHALK}>
-          {c.status === "open" ? fmtDelta(c.deadline) + " restant" : c.status === "drawn" ? "duels en cours" : "clôturé"}
-        </Chip>
-      </div>
+  const NavCard = ({ icon: Icon, title, subtitle, badge, gradient, onClick }) => (
+    <button onClick={onClick} className="rounded-3xl p-4 text-left relative overflow-hidden" style={{ background: gradient, border: "1px solid #FFFFFF14", cursor: "pointer", minHeight: 108 }}>
+      <Icon size={20} color={CHALK} />
+      <div style={{ ...display, fontSize: 18, marginTop: 8 }}>{title}</div>
+      <div style={{ fontSize: 11, color: MUTE, marginTop: 2 }}>{subtitle}</div>
+      {badge != null && (
+        <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full" style={{ background: `${GOLD}22`, border: `1px solid ${GOLD}55`, fontSize: 10, color: GOLD, fontWeight: 700 }}>{badge}</div>
+      )}
     </button>
   );
 
@@ -350,79 +344,136 @@ function HomePage({ nav, toast }) {
         Relève le défi. Affronte quelqu'un. Prouve-le.
       </div>
 
-      {/* Duels en cours : la section la plus "chaude", en premier */}
-      {drawn.length > 0 && (
+      {/* À la une */}
+      {featured && (
         <div className="px-5 mt-3">
-          <div className="flex items-center justify-between mb-2">
-            <div style={{ color: GOLD, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em" }} className="uppercase flex items-center gap-1">
-              ⚔️ Duels en cours
+          <div style={{ color: GOLD, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em" }} className="uppercase mb-2">🔥 À la une</div>
+          <button
+            onClick={() => nav("challenge", { id: featured.id })}
+            className="w-full rounded-3xl p-5 text-left relative overflow-hidden"
+            style={{ background: `linear-gradient(135deg, ${CORAL}2E, ${INK2} 55%, ${COBALT}2E)`, border: `1px solid ${GOLD}33`, cursor: "pointer" }}
+          >
+            <div style={{ ...display, fontSize: 30, lineHeight: "0.95" }}>{featured.emoji} {featured.title}</div>
+            <div className="flex items-center gap-2 mt-3">
+              <Chip color={LIME}><Users size={11} className="inline mr-1" />{featured.participantsCount} participants</Chip>
+              <Chip color={featured.status === "drawn" ? GOLD : CHALK}>
+                {featured.status === "open" ? fmtDelta(featured.deadline) + " restant" : "duels en cours"}
+              </Chip>
             </div>
-            <button onClick={refresh} className="flex items-center gap-1" style={{ background: "transparent", border: "none", color: MUTE, fontSize: 11, cursor: "pointer" }}>
-              <RefreshCw size={11} /> Actualiser
-            </button>
-          </div>
-          <div className="flex flex-col gap-3">
-            {(showAllDrawn ? drawn : drawn.slice(0, PAGE)).map((c) => <ChallengeCard key={c.id} c={c} />)}
-          </div>
-          {drawn.length > PAGE && (
-            <button onClick={() => setShowAllDrawn((v) => !v)} className="w-full text-center mt-2" style={{ fontSize: 12, color: MUTE, background: "transparent", border: "none", cursor: "pointer" }}>
-              {showAllDrawn ? "Voir moins" : `Voir tout (${drawn.length})`}
-            </button>
-          )}
+          </button>
         </div>
       )}
 
-      {/* Défis ouverts : triés par deadline la plus proche */}
-      <div className="px-5 mt-6">
-        <div className="flex items-center justify-between mb-2">
-          <div style={{ color: LIME, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em" }} className="uppercase flex items-center gap-1">
-            <Flame size={12} /> {drawn.length > 0 ? "Se terminent bientôt" : "Défis en cours"}
-          </div>
-          {drawn.length === 0 && (
-            <button onClick={refresh} className="flex items-center gap-1" style={{ background: "transparent", border: "none", color: MUTE, fontSize: 11, cursor: "pointer" }}>
-              <RefreshCw size={11} /> Actualiser
-            </button>
-          )}
-        </div>
-        <div className="flex flex-col gap-3">
-          {open.length === 0 && <div style={{ fontSize: 13, color: MUTE }}>Aucun défi ouvert pour l'instant.</div>}
-          {(showAllOpen ? open : open.slice(0, PAGE)).map((c) => <ChallengeCard key={c.id} c={c} />)}
-        </div>
-        {open.length > PAGE && (
-          <button onClick={() => setShowAllOpen((v) => !v)} className="w-full text-center mt-2" style={{ fontSize: 12, color: MUTE, background: "transparent", border: "none", cursor: "pointer" }}>
-            {showAllOpen ? "Voir moins" : `Voir tous les défis (${open.length})`}
-          </button>
-        )}
+      {/* Hub de navigation, 2x2 */}
+      <div className="px-5 mt-6 grid grid-cols-2 gap-3">
+        <NavCard icon={Flame} title="Défis" subtitle="Découvrir et participer" gradient={`linear-gradient(135deg, ${CORAL}22, ${INK2})`} onClick={() => nav("browse", { tab: "open" })} />
+        <NavCard icon={Swords} title="Duels" subtitle="Voter maintenant" badge={drawn.length > 0 ? drawn.length : null} gradient={`linear-gradient(135deg, ${GOLD}22, ${INK2})`} onClick={() => nav("browse", { tab: "drawn" })} />
+        <NavCard icon={Plus} title="Créer" subtitle="Lance ton défi" gradient={`linear-gradient(135deg, ${LIME}22, ${INK2})`} onClick={() => nav("create")} />
+        <NavCard icon={Trophy} title="Résultats" subtitle="Voir les gagnants" gradient={`linear-gradient(135deg, ${COBALT}22, ${INK2})`} onClick={() => nav("halloffame")} />
       </div>
 
-      <div className="px-5 mt-6">
-        <Button icon={Plus} onClick={() => nav("create")}>Proposer un défi</Button>
-        <div style={{ fontSize: 11, color: MUTE, textAlign: "center", marginTop: 8 }}>Ta proposition est examinée avant publication.</div>
-      </div>
+      {/* Défis populaires, aperçu court */}
+      {popular.length > 0 && (
+        <div className="px-5 mt-6">
+          <div className="flex items-center justify-between mb-2">
+            <div style={{ color: LIME, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em" }} className="uppercase">Défis populaires</div>
+            <button onClick={refresh} style={{ background: "transparent", border: "none", color: MUTE, cursor: "pointer" }}><RefreshCw size={11} /></button>
+          </div>
+          <div className="flex flex-col gap-2">
+            {popular.map((c) => (
+              <button key={c.id} onClick={() => nav("challenge", { id: c.id })} className="rounded-2xl p-3 flex items-center justify-between text-left" style={{ background: INK2, border: "1px solid #FFFFFF10", cursor: "pointer" }}>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{c.emoji} {c.title}</div>
+                <div style={{ fontSize: 11, color: MUTE }}>{c.participantsCount} participants</div>
+              </button>
+            ))}
+          </div>
+          <button onClick={() => nav("browse", { tab: "open" })} className="w-full text-center mt-2" style={{ fontSize: 12, color: MUTE, background: "transparent", border: "none", cursor: "pointer" }}>
+            Voir tous les défis ({open.length + drawn.length}) →
+          </button>
+        </div>
+      )}
+
+      {index.length === 0 && (
+        <div className="px-5 mt-6" style={{ fontSize: 13, color: MUTE }}>Aucun défi pour l'instant.</div>
+      )}
 
       {closed.length > 0 && (
         <div className="px-5 mt-6">
-          <button onClick={() => setShowClosed((v) => !v)} className="w-full flex items-center justify-between" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
+          <button onClick={() => nav("browse", { tab: "closed" })} className="w-full flex items-center justify-between" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
             <div style={{ color: MUTE, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em" }} className="uppercase">Historique · Terminés ({closed.length})</div>
-            <span style={{ color: MUTE, fontSize: 11 }}>{showClosed ? "▲" : "▼"}</span>
+            <span style={{ color: MUTE, fontSize: 11 }}>→</span>
           </button>
-          {showClosed && (
-            <div className="flex flex-col gap-2 mt-2">
-              {closed.map((c) => (
-                <button key={c.id} onClick={() => nav("challenge", { id: c.id })} className="rounded-2xl p-3 flex items-center justify-between text-left" style={{ background: INK2, border: "1px solid #FFFFFF10", cursor: "pointer" }}>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>{c.emoji} {c.title}</div>
-                  <Trophy size={14} color={GOLD} />
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
       <div className="px-5 mt-8 flex gap-2">
-        <button onClick={() => nav("halloffame")} className="flex-1 py-2.5 rounded-xl text-xs font-semibold" style={{ background: "transparent", border: "1px solid #FFFFFF22", color: MUTE, cursor: "pointer" }}>
-          🏆 Hall of Fame
+        <button onClick={() => nav("profile")} className="flex-1 py-2.5 rounded-xl text-xs font-semibold" style={{ background: "transparent", border: "1px solid #FFFFFF22", color: MUTE, cursor: "pointer" }}>
+          👤 Mon profil
         </button>
+        <button onClick={() => nav("halloffame")} className="flex-1 py-2.5 rounded-xl text-xs font-semibold" style={{ background: "transparent", border: "1px solid #FFFFFF22", color: MUTE, cursor: "pointer" }}>
+          👑 Hall of Fame
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BrowsePage({ initialTab, nav, toast }) {
+  const [index, setIndex] = useState(null);
+  const [tab, setTab] = useState(initialTab || "open");
+
+  const refresh = useCallback(async () => {
+    try {
+      setIndex(await api.loadIndex());
+    } catch (e) {
+      toast(e.message);
+      setIndex([]);
+    }
+  }, [toast]);
+  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { setTab(initialTab || "open"); }, [initialTab]);
+
+  if (index === null) return <Loading />;
+
+  const lists = {
+    open: [...index.filter((c) => c.status === "open")].sort((a, b) => a.deadline - b.deadline),
+    drawn: index.filter((c) => c.status === "drawn"),
+    closed: index.filter((c) => c.status === "closed"),
+  };
+  const tabs = [
+    { key: "open", label: "🔥 Ouverts", color: LIME },
+    { key: "drawn", label: "⚔️ Duels", color: GOLD },
+    { key: "closed", label: "🏁 Terminés", color: MUTE },
+  ];
+  const list = lists[tab];
+
+  return (
+    <div className="max-w-2xl mx-auto w-full px-5 pb-10">
+      <div className="flex gap-2 mb-4">
+        {tabs.map((t) => (
+          <button key={t.key} onClick={() => setTab(t.key)} className="flex-1 py-2 rounded-xl text-xs font-semibold" style={{ background: tab === t.key ? `${t.color}22` : "transparent", border: `1px solid ${tab === t.key ? t.color : "#FFFFFF22"}`, color: tab === t.key ? t.color : MUTE, cursor: "pointer" }}>
+            {t.label} ({lists[t.key].length})
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-col gap-3">
+        {list.length === 0 && <div style={{ fontSize: 13, color: MUTE }}>Rien ici pour l'instant.</div>}
+        {list.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => nav("challenge", { id: c.id })}
+            className="rounded-3xl p-4 relative overflow-hidden text-left"
+            style={{ background: `linear-gradient(135deg, ${CORAL}22, ${INK2} 60%, ${COBALT}22)`, border: `1px solid #FFFFFF14`, cursor: "pointer" }}
+          >
+            <div style={{ ...display, fontSize: 24, lineHeight: "0.95" }}>{c.emoji} {c.title}</div>
+            <div className="flex items-center gap-2 mt-3">
+              <Chip color={LIME}><Users size={11} className="inline mr-1" />{c.participantsCount} participants</Chip>
+              <Chip color={c.status === "drawn" ? GOLD : CHALK}>
+                {c.status === "open" ? fmtDelta(c.deadline) + " restant" : c.status === "drawn" ? "duels en cours" : "clôturé"}
+              </Chip>
+            </div>
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -1102,6 +1153,7 @@ function parseHash() {
   if (parts[0] === "admin") return { view: "admin" };
   if (parts[0] === "profile") return { view: "profile" };
   if (parts[0] === "halloffame") return { view: "halloffame" };
+  if (parts[0] === "browse") return { view: "browse", tab: parts[1] || "open" };
   if (parts[0] === "challenge" && parts[1]) {
     if (parts[2] === "join") return { view: "join", id: parts[1] };
     if (parts[2] === "duels") return { view: "duels", id: parts[1] };
@@ -1115,6 +1167,7 @@ function routeToHash(view, params = {}) {
   if (view === "create") return "#/create";
   if (view === "profile") return "#/profile";
   if (view === "halloffame") return "#/halloffame";
+  if (view === "browse") return `#/browse/${params.tab || "open"}`;
   if (view === "challenge") return `#/challenge/${params.id}`;
   if (view === "join") return `#/challenge/${params.id}/join`;
   if (view === "duels") return `#/challenge/${params.id}/duels`;
@@ -1149,6 +1202,7 @@ export default function SprintlyApp() {
       case "duel": return null;
       case "profile": return "PROFIL";
       case "halloffame": return "HALL OF FAME";
+      case "browse": return "DÉFIS";
       default: return null;
     }
   };
@@ -1179,6 +1233,7 @@ export default function SprintlyApp() {
 
       <div className="flex-1">
         {route.view === "home" && <HomePage nav={nav} toast={toast} />}
+        {route.view === "browse" && <BrowsePage initialTab={route.tab} nav={nav} toast={toast} />}
         {route.view === "create" && <CreatePage nav={nav} pseudo={pseudo} toast={toast} />}
         {route.view === "challenge" && <ChallengePage id={route.id} nav={nav} pseudo={pseudo} toast={toast} />}
         {route.view === "join" && <JoinPage id={route.id} nav={nav} pseudo={pseudo} toast={toast} />}
