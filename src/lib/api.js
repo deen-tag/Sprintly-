@@ -194,7 +194,11 @@ export async function sendMagicLink(email) {
     // reprise via localStorage + onAuthStateChange, peu importe la page d'arrivée.
     options: { emailRedirectTo: window.location.origin + window.location.pathname },
   });
-  if (error) throw new Error("Impossible d'envoyer l'email. Vérifie l'adresse.");
+  if (error) {
+    // On remonte le vrai message (ex: limite anti-spam de Supabase atteinte),
+    // plutôt qu'un message générique qui masque la vraie cause.
+    throw new Error(error.message || "Impossible d'envoyer l'email. Vérifie l'adresse.");
+  }
 }
 
 export async function getSession() {
