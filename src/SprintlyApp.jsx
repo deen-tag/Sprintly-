@@ -619,6 +619,8 @@ function DuelsListPage({ id, nav, pseudo }) {
 function DuelPage({ id, duelId, nav, pseudo, toast }) {
   const [ch, setCh] = useState(null);
   const [voted, setVoted] = useState(false);
+  const [chosenSide, setChosenSide] = useState(null);
+  const [now, setNow] = useState(Date.now());
   const refresh = useCallback(async () => {
     try {
       setCh(await api.loadChallenge(id));
@@ -630,6 +632,11 @@ function DuelPage({ id, duelId, nav, pseudo, toast }) {
   useEffect(() => {
     if (pseudo) api.hasVoted(duelId, pseudo).then(setVoted);
   }, [duelId, pseudo]);
+  // horloge en direct pour le temps restant avant clôture
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   if (!ch) return <Loading />;
   const duel = ch.duels.find((d) => d.id === duelId);
@@ -646,6 +653,7 @@ function DuelPage({ id, duelId, nav, pseudo, toast }) {
     try {
       await api.castVote(duel.id, pseudo, side);
       setVoted(true);
+      setChosenSide(side);
       await refresh();
       toast("Vote enregistré ✓");
     } catch (e) {
@@ -687,16 +695,36 @@ function DuelPage({ id, duelId, nav, pseudo, toast }) {
 
       {duel.b && (
         <>
+          {/* Compteur de votes + temps restant, toujours visibles */}
+          <div className="flex items-center justify-center gap-3 mt-4" style={{ fontSize: 12, color: MUTE }}>
+            <span>🗳️ {total} vote{total !== 1 ? "s" : ""}</span>
+            {!duel.closed && duel.closesAt && (
+              <>
+                <span style={{ color: `${CHALK}33` }}>·</span>
+                <span>⏱️ {fmtDelta(duel.closesAt)} restant</span>
+              </>
+            )}
+          </div>
+
+          {/* Barre de progression A/B en direct, dès qu'il y a des votes */}
+          {total > 0 && (
+            <div className="mt-2">
+              <div className="w-full h-2 rounded-full overflow-hidden flex" style={{ background: INK2 }}>
+                <div style={{ width: `${pctA}%`, background: CORAL }} />
+                <div style={{ width: `${pctB}%`, background: COBALT }} />
+              </div>
+              <div className="flex items-center justify-between mt-1" style={{ fontSize: 11, color: MUTE }}>
+                <span>{duel.a.pseudo} {pctA}%</span>
+                <span>{pctB}% {duel.b.pseudo}</span>
+              </div>
+            </div>
+          )}
+
           {showResult ? (
             <div className="rounded-2xl p-4 mt-4 text-center" style={{ background: `${GOLD}14`, border: `1px solid ${GOLD}44` }}>
               <div style={{ fontSize: 12, color: MUTE }}>Vainqueur du duel</div>
               <div style={{ ...display, fontSize: 26, color: GOLD, marginTop: 2 }}>{(duel.winner === "A" ? duel.a.pseudo : duel.b.pseudo).toUpperCase()} GAGNE</div>
-              <div className="flex items-center justify-center gap-4 mt-3">
-                <div className="text-center"><div style={{ ...mono, fontSize: 20, color: CORAL }}>{pctA}%</div><div style={{ fontSize: 10, color: MUTE }}>{duel.a.pseudo}</div></div>
-                <div style={{ color: `${CHALK}33` }}>—</div>
-                <div className="text-center"><div style={{ ...mono, fontSize: 20, color: COBALT }}>{pctB}%</div><div style={{ fontSize: 10, color: MUTE }}>{duel.b.pseudo}</div></div>
-              </div>
-              <div style={{ fontSize: 11, color: MUTE, marginTop: 6 }}>{total} votes</div>
+              <div style={{ fontSize: 11, color: MUTE, marginTop: 6 }}>{total} votes au total</div>
             </div>
           ) : (
             <div className="mt-4 flex flex-col gap-3">
@@ -704,7 +732,11 @@ function DuelPage({ id, duelId, nav, pseudo, toast }) {
                 <button onClick={() => vote("A")} disabled={hasVoted || isParticipant} className="flex-1 py-3 rounded-2xl font-bold" style={{ background: `${CORAL}22`, border: `1px solid ${CORAL}66`, color: CHALK, opacity: hasVoted || isParticipant ? 0.5 : 1, cursor: hasVoted || isParticipant ? "not-allowed" : "pointer" }}>Voter {duel.a.pseudo}</button>
                 <button onClick={() => vote("B")} disabled={hasVoted || isParticipant} className="flex-1 py-3 rounded-2xl font-bold" style={{ background: `${COBALT}22`, border: `1px solid ${COBALT}66`, color: CHALK, opacity: hasVoted || isParticipant ? 0.5 : 1, cursor: hasVoted || isParticipant ? "not-allowed" : "pointer" }}>Voter {duel.b.pseudo}</button>
               </div>
-              {hasVoted && <div style={{ fontSize: 12, color: LIME, textAlign: "center" }}>✓ Vote enregistré · {total} votes au total</div>}
+              {hasVoted && (
+                <div style={{ fontSize: 12, color: LIME, textAlign: "center" }}>
+                  ✓ {chosenSide ? `Tu as voté pour ${chosenSide === "A" ? duel.a.pseudo : duel.b.pseudo}` : "Tu as déjà voté sur ce duel"}
+                </div>
+              )}
               {isParticipant && <div style={{ fontSize: 12, color: MUTE, textAlign: "center" }}>Tu es dans ce duel, tu ne peux pas voter</div>}
               <button onClick={closeDuel} className="text-center" style={{ fontSize: 12, color: MUTE, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}>Clore ce duel maintenant</button>
             </div>
