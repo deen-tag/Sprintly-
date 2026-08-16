@@ -750,10 +750,12 @@ function DuelPage({ id, duelId, nav, pseudo, toast }) {
 function ProfilePage({ pseudo, nav, toast }) {
   const [name, setName] = useState(pseudo || "");
   const [user, setUser] = useState(undefined);
+  const [stats, setStats] = useState(null);
 
   const search = useCallback(async (p) => {
     if (!p) return;
     setUser(await api.loadUser(p));
+    setStats(await api.loadUserStats(p));
   }, []);
   useEffect(() => { search(pseudo); }, [pseudo, search]);
 
@@ -779,13 +781,32 @@ function ProfilePage({ pseudo, nav, toast }) {
               <div style={{ fontSize: 11, color: MUTE }}>{user.trophies.length} trophée{user.trophies.length > 1 ? "s" : ""}</div>
             </div>
           </div>
+          {stats && stats.duelsPlayed > 0 && (
+            <div className="flex gap-2 mb-5">
+              <div className="flex-1 rounded-2xl p-3 text-center" style={{ background: INK2, border: "1px solid #FFFFFF10" }}>
+                <div style={{ ...display, fontSize: 20, color: GOLD }}>{user.trophies.length}</div>
+                <div style={{ fontSize: 10, color: MUTE }}>trophée{user.trophies.length > 1 ? "s" : ""}</div>
+              </div>
+              <div className="flex-1 rounded-2xl p-3 text-center" style={{ background: INK2, border: "1px solid #FFFFFF10" }}>
+                <div style={{ ...display, fontSize: 20, color: CHALK }}>{stats.duelsPlayed}</div>
+                <div style={{ fontSize: 10, color: MUTE }}>duel{stats.duelsPlayed > 1 ? "s" : ""}</div>
+              </div>
+              <div className="flex-1 rounded-2xl p-3 text-center" style={{ background: INK2, border: "1px solid #FFFFFF10" }}>
+                <div style={{ ...display, fontSize: 20, color: LIME }}>{stats.winPct}%</div>
+                <div style={{ fontSize: 10, color: MUTE }}>victoires</div>
+              </div>
+            </div>
+          )}
           <div style={{ fontSize: 11, color: MUTE, fontWeight: 700 }} className="uppercase mb-2">Collection de trophées</div>
           <div className="flex flex-col gap-2">
             {user.trophies.length === 0 && <div style={{ fontSize: 13, color: MUTE }}>Pas encore de trophée.</div>}
             {[...user.trophies].reverse().map((t, i) => (
               <div key={i} className="rounded-2xl p-3 flex items-center gap-3" style={{ background: i === 0 ? `${GOLD}14` : INK2, border: i === 0 ? `1px solid ${GOLD}55` : "1px solid #FFFFFF10" }}>
                 <Trophy size={18} color={i === 0 ? GOLD : `${GOLD}88`} />
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{t.challengeTitle}</div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>🏆 Victoire — {t.challengeTitle}</div>
+                  <div style={{ fontSize: 10, color: MUTE }}>Duel remporté</div>
+                </div>
               </div>
             ))}
           </div>
