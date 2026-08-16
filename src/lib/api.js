@@ -1,6 +1,22 @@
 import { supabase } from "./supabaseClient.js";
 
 /* ---------------------------------------------------------
+   Identité anonyme pour voter sans inscription : un uuid généré
+   une seule fois et gardé en localStorage sur cet appareil/navigateur.
+--------------------------------------------------------- */
+const DEVICE_ID_KEY = "sprintly_device_id";
+
+export function getDeviceId() {
+  if (typeof window === "undefined") return null;
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
+}
+
+/* ---------------------------------------------------------
    Couche d'accès aux données.
    Remplace les anciens helpers window.storage par de vraies
    requêtes/fonctions Supabase (Postgres + RLS + RPC atomiques).
@@ -46,12 +62,17 @@ function friendlyError(err) {
   const code = err?.message || "";
   const map = {
     already_joined: "Ce pseudo a déjà rejoint ce défi.",
+    login_required: "Connecte-toi d'abord, en haut de l'écran.",
+    pseudo_required: "Choisis un pseudo avant de continuer.",
+    pseudo_already_set: "Tu as déjà un pseudo sur ce compte.",
+    pseudo_taken: "Ce pseudo est déjà pris.",
     challenge_not_open: "Ce défi n'est plus ouvert aux inscriptions.",
     deadline_passed: "Les inscriptions sont closes pour ce défi.",
     pseudo_and_link_required: "Ajoute ton lien vidéo et ton pseudo.",
     title_and_author_required: "Donne un titre à ton défi.",
-    cannot_vote_own_duel: "Tu ne peux pas voter sur ton propre duel.",
     already_voted: "Tu as déjà voté sur ce duel.",
+    too_many_votes_from_ip: "Trop de votes depuis cette connexion pour ce duel.",
+    device_id_required: "Une erreur technique empêche le vote, recharge la page.",
     duel_closed: "Ce duel est clôturé.",
     not_author: "Seul l'auteur du défi peut lancer le tirage.",
     deadline_not_passed: "Les inscriptions ne sont pas encore closes.",
@@ -153,11 +174,48 @@ export async function loadMyParticipations(pseudo) {
     }));
 }
 
-export async function hasVoted(duelId, pseudo) {
-  if (!pseudo) return false;
-  const { data, error } = await supabase.rpc("has_voted", { p_duel_id: duelId, p_pseudo: pseudo });
+export async function hasVoted(duelId) {
+  const deviceId = getDeviceId();
+  if (!deviceId) return false;
+  const { data, error } = await supabase.rpc("has_voted", { p_duel_id: duelId, p_device_id: deviceId });
   if (error) return false;
   return !!data;
+}
+
+/* ---------------- Auth participant (lien magique) ---------------- */
+
+// Envoie un email avec un lien de connexion. En cliquant dessus, la personne
+// revient sur cette page déjà connectée (pas de mot de passe à créer).
+export async function sendMagicLink(email) {
+  const { error } = await supabase.auth.signInWithOtp({
+    email: email.trim(),
+    options: { emailRedirectTo: window.location.href },
+  });
+  if (error) throw new Error("Impossible d'envoyer l'email. Vérifie l'adresse.");
+}
+
+export async function getSession() {
+  const { data } = await supabase.auth.getSession();
+  return data.session;
+}
+
+export function onAuthStateChange(callback) {
+  const { data } = supabase.auth.onAuthStateChange((_event, session) => callback(session));
+  return () => data.subscription.unsubscribe();
+}
+
+export async function signOut() {
+  await supabase.auth.signOut();
+}
+
+export async function getMyPseudo() {
+  const { data, error } = await supabase.rpc("get_my_pseudo");
+  if (error) return null;
+  return data || null;
+}
+
+export async function setMyPseudo(pseudo) {
+  return rpc("set_my_pseudo", { p_pseudo: pseudo });
 }
 
 /* ---------------- Écriture (RPC atomiques) ---------------- */
@@ -168,9 +226,9 @@ async function rpc(fn, args) {
   return data;
 }
 
-export async function createChallenge({ emoji, title, author, description, rules, durationMinutes }) {
+export async function createChallenge({ emoji, title, description, rules, durationMinutes }) {
   return rpc("create_challenge", {
-    p_emoji: emoji, p_title: title, p_author: author, p_description: description,
+    p_emoji: emoji, p_title: title, p_description: description,
     p_rules: rules, p_duration_minutes: durationMinutes,
   });
 }
@@ -179,16 +237,16 @@ export async function joinChallenge(challengeId, pseudo, videoLink) {
   return rpc("join_challenge", { p_challenge_id: challengeId, p_pseudo: pseudo, p_video_link: videoLink });
 }
 
-export async function castVote(duelId, pseudo, side) {
-  return rpc("cast_vote", { p_duel_id: duelId, p_pseudo: pseudo, p_side: side });
+export async function castVote(duelId, side) {
+  return rpc("cast_vote", { p_duel_id: duelId, p_device_id: getDeviceId(), p_side: side });
 }
 
 export async function closeDuel(duelId) {
   return rpc("close_duel", { p_duel_id: duelId });
 }
 
-export async function drawChallenge(challengeId, pseudo) {
-  return rpc("draw_challenge", { p_challenge_id: challengeId, p_pseudo: pseudo });
+export async function drawChallenge(challengeId) {
+  return rpc("draw_challenge", { p_challenge_id: challengeId });
 }
 
 /* ---------------- Admin ---------------- */
