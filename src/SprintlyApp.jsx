@@ -250,7 +250,7 @@ function Toast({ message, onDone }) {
 function AccountBar({ nav, toast, refreshSignal, onAccountChange }) {
   const [session, setSession] = useState(undefined); // undefined = chargement
   const [myPseudo, setMyPseudoState] = useState(null);
-  const [step, setStep] = useState("idle"); // idle | auth | forgot | forgotSent | pseudo | recovery
+  const [step, setStep] = useState("idle"); // idle | auth | signup | forgot | forgotSent | pseudo | recovery
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -283,9 +283,30 @@ function AccountBar({ nav, toast, refreshSignal, onAccountChange }) {
     if (!password || password.length < 6) { setError("6 caractères minimum."); return; }
     setBusy(true);
     try {
-      await api.signInOrSignUp(email.trim(), password);
+      await api.signIn(email.trim(), password);
       setPassword("");
       setStep("idle");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitSignup = async () => {
+    setError("");
+    if (!email.trim() || !email.includes("@")) { setError("Adresse email invalide."); return; }
+    if (!password || password.length < 6) { setError("6 caractères minimum."); return; }
+    setBusy(true);
+    try {
+      const result = await api.signUp(email.trim(), password);
+      setPassword("");
+      if (result?.session) {
+        setStep("idle");
+      } else {
+        setStep("forgotSent");
+        setError("");
+      }
     } catch (e) {
       setError(e.message);
     } finally {
@@ -395,7 +416,7 @@ function AccountBar({ nav, toast, refreshSignal, onAccountChange }) {
     );
   }
 
-  if (step === "auth" || step === "forgot" || step === "forgotSent") {
+  if (step === "auth" || step === "signup" || step === "forgot" || step === "forgotSent") {
     return (
       <div className="relative">
         <div
@@ -404,7 +425,7 @@ function AccountBar({ nav, toast, refreshSignal, onAccountChange }) {
         >
           <div className="flex items-center justify-between mb-0.5">
             <span style={{ fontSize: 11, color: MUTE, fontWeight: 700, ...body }} className="uppercase">
-              {step === "forgot" ? "Mot de passe oublié" : step === "forgotSent" ? "Email envoyé" : "Connexion"}
+              {step === "forgot" ? "Mot de passe oublié" : step === "forgotSent" ? "Email envoyé" : step === "signup" ? "Inscription" : "Connexion"}
             </span>
             <button onClick={() => { setStep("idle"); setError(""); }} style={{ background: "transparent", border: "none", color: MUTE, cursor: "pointer" }}>
               <X size={14} />
@@ -413,7 +434,7 @@ function AccountBar({ nav, toast, refreshSignal, onAccountChange }) {
 
           {step === "forgotSent" && (
             <div style={{ fontSize: 12, color: MUTE, lineHeight: 1.4, ...body }}>
-              ✉️ Vérifie ta boîte mail, clique sur le lien pour choisir un nouveau mot de passe.
+              ✉️ Vérifie ta boîte mail et clique sur le lien pour confirmer ton compte.
             </div>
           )}
 
@@ -436,21 +457,26 @@ function AccountBar({ nav, toast, refreshSignal, onAccountChange }) {
             </>
           )}
 
-          {step === "auth" && (
+          {(step === "auth" || step === "signup") && (
             <>
-              <button
-                onClick={handleGoogle} disabled={busy}
-                className="flex items-center justify-center gap-2 rounded-xl py-2.5"
-                style={{ background: CHALK, border: "none", cursor: "pointer" }}
-              >
-                <span style={{ fontSize: 12, fontWeight: 700, color: INK, ...body }}>Continuer avec Google</span>
-              </button>
-              <div className="flex items-center gap-2 my-0.5">
-                <div style={{ flex: 1, height: 1, background: "#FFFFFF14" }} />
-                <span style={{ fontSize: 10, color: MUTE }}>ou</span>
-                <div style={{ flex: 1, height: 1, background: "#FFFFFF14" }} />
-              </div>
+              {step === "auth" && (
+                <button
+                  onClick={handleGoogle} disabled={busy}
+                  className="flex items-center justify-center gap-2 rounded-xl py-2.5"
+                  style={{ background: CHALK, border: "none", cursor: "pointer" }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 700, color: INK, ...body }}>Continuer avec Google</span>
+                </button>
+              )}
+              {step === "auth" && (
+                <div className="flex items-center gap-2 my-0.5">
+                  <div style={{ flex: 1, height: 1, background: "#FFFFFF14" }} />
+                  <span style={{ fontSize: 10, color: MUTE }}>ou</span>
+                  <div style={{ flex: 1, height: 1, background: "#FFFFFF14" }} />
+                </div>
+              )}
               <input
+                autoFocus
                 value={email} onChange={(e) => setEmail(e.target.value)}
                 placeholder="ton email"
                 className="rounded-xl px-3 py-2 outline-none"
@@ -458,18 +484,34 @@ function AccountBar({ nav, toast, refreshSignal, onAccountChange }) {
               />
               <input
                 type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") submitAuth(); }}
-                placeholder="mot de passe"
+                onKeyDown={(e) => { if (e.key === "Enter") (step === "signup" ? submitSignup() : submitAuth()); }}
+                placeholder="mot de passe (6 caractères minimum)"
                 className="rounded-xl px-3 py-2 outline-none"
                 style={{ background: INK, border: "1px solid #FFFFFF18", color: CHALK, fontSize: 12, ...body }}
               />
               {error && <div style={{ fontSize: 11, color: CORAL }}>{error}</div>}
-              <button onClick={submitAuth} disabled={busy} className="rounded-xl py-2" style={{ background: LIME, color: INK, fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>
-                {busy ? "…" : "Continuer"}
-              </button>
-              <button onClick={() => { setStep("forgot"); setError(""); }} style={{ fontSize: 11, color: MUTE, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}>
-                Mot de passe oublié ?
-              </button>
+              {step === "signup" ? (
+                <>
+                  <button onClick={submitSignup} disabled={busy} className="rounded-xl py-2" style={{ background: LIME, color: INK, fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>
+                    {busy ? "Création…" : "Créer mon compte"}
+                  </button>
+                  <button onClick={() => { setStep("auth"); setError(""); }} style={{ fontSize: 11, color: MUTE, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+                    J'ai déjà un compte
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={submitAuth} disabled={busy} className="rounded-xl py-2" style={{ background: LIME, color: INK, fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>
+                    {busy ? "Connexion…" : "Se connecter"}
+                  </button>
+                  <button onClick={() => { setStep("signup"); setError(""); }} style={{ fontSize: 11, color: LIME, background: "transparent", border: "none", cursor: "pointer", fontWeight: 700 }}>
+                    Pas encore de compte ? S'inscrire
+                  </button>
+                  <button onClick={() => { setStep("forgot"); setError(""); }} style={{ fontSize: 11, color: MUTE, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+                    Mot de passe oublié ?
+                  </button>
+                </>
+              )}
             </>
           )}
         </div>
