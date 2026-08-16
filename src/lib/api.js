@@ -133,6 +133,26 @@ export async function loadUserStats(pseudo) {
   };
 }
 
+export async function loadMyParticipations(pseudo) {
+  if (!pseudo) return [];
+  const { data, error } = await supabase
+    .from("participants")
+    .select("challenge_id, video_link, joined_at, challenges(id, emoji, title, status)")
+    .ilike("pseudo", pseudo)
+    .order("joined_at", { ascending: false });
+  if (error || !data) return [];
+  return data
+    .filter((p) => p.challenges)
+    .map((p) => ({
+      challengeId: p.challenges.id,
+      emoji: p.challenges.emoji,
+      title: p.challenges.title,
+      status: p.challenges.status,
+      videoLink: p.video_link,
+      joinedAt: new Date(p.joined_at).getTime(),
+    }));
+}
+
 export async function hasVoted(duelId, pseudo) {
   if (!pseudo) return false;
   const { data, error } = await supabase.rpc("has_voted", { p_duel_id: duelId, p_pseudo: pseudo });
