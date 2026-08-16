@@ -768,12 +768,41 @@ function DuelPage({ id, duelId, nav, pseudo, toast }) {
   const pctB = 100 - pctA;
   const showResult = duel.closed;
 
+  const shareDuel = async () => {
+    const url = window.location.href;
+    const title = `⚔️ ${duel.a?.pseudo || "?"} VS ${duel.b?.pseudo || "?"} — vote sur Sprintly !`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text: title, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast("Lien copié ! Envoie-le à tes potes 🔥");
+      }
+    } catch (e) {
+      // partage annulé par l'utilisateur, on ne fait rien
+    }
+  };
+
+  const ShareButton = ({ label }) => (
+    <button onClick={shareDuel} className="w-full py-3 rounded-2xl font-bold flex items-center justify-center gap-2" style={{ background: `${LIME}18`, border: `1px solid ${LIME}55`, color: LIME, cursor: "pointer" }}>
+      <Share2 size={16} /> {label}
+    </button>
+  );
+
   return (
     <div className="max-w-2xl mx-auto w-full px-5 pb-10">
       <div className="flex items-center justify-between mb-3">
         <div style={{ ...display, fontSize: 20 }}>⚔️ {(duel.a?.pseudo || "?").toUpperCase()} VS {(duel.b?.pseudo || "BYE").toUpperCase()}</div>
         <Chip color={CORAL}>Duel #{String(duel.no).padStart(2, "0")}</Chip>
       </div>
+
+      {/* Priorité absolue : si tu es dans ce duel, on te pousse à le partager pour récupérer des votes */}
+      {isParticipant && !duel.closed && duel.b && (
+        <div className="rounded-2xl p-3 mb-3" style={{ background: `${LIME}12`, border: `1px solid ${LIME}44` }}>
+          <div style={{ fontSize: 12, color: LIME, fontWeight: 700, marginBottom: 8 }}>⚡ C'est ton duel ! Fais voter tes potes</div>
+          <ShareButton label="Partager mon duel" />
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         <VideoCard side="A" name={duel.a?.pseudo || "?"} link={duel.a?.videoLink} />
@@ -817,6 +846,7 @@ function DuelPage({ id, duelId, nav, pseudo, toast }) {
               <div style={{ fontSize: 12, color: MUTE }}>Vainqueur du duel</div>
               <div style={{ ...display, fontSize: 26, color: GOLD, marginTop: 2 }}>{(duel.winner === "A" ? duel.a.pseudo : duel.b.pseudo).toUpperCase()} GAGNE</div>
               <div style={{ fontSize: 11, color: MUTE, marginTop: 6 }}>{total} votes au total</div>
+              <div className="mt-4"><ShareButton label="Partager ce duel" /></div>
             </div>
           ) : (
             <div className="mt-4 flex flex-col gap-3">
@@ -825,11 +855,15 @@ function DuelPage({ id, duelId, nav, pseudo, toast }) {
                 <button onClick={() => vote("B")} disabled={hasVoted || isParticipant} className="flex-1 py-3 rounded-2xl font-bold" style={{ background: `${COBALT}22`, border: `1px solid ${COBALT}66`, color: CHALK, opacity: hasVoted || isParticipant ? 0.5 : 1, cursor: hasVoted || isParticipant ? "not-allowed" : "pointer" }}>Voter {duel.b.pseudo}</button>
               </div>
               {hasVoted && (
-                <div style={{ fontSize: 12, color: LIME, textAlign: "center" }}>
-                  ✓ {chosenSide ? `Tu as voté pour ${chosenSide === "A" ? duel.a.pseudo : duel.b.pseudo}` : "Tu as déjà voté sur ce duel"}
-                </div>
+                <>
+                  <div style={{ fontSize: 12, color: LIME, textAlign: "center" }}>
+                    ✓ {chosenSide ? `Tu as voté pour ${chosenSide === "A" ? duel.a.pseudo : duel.b.pseudo}` : "Tu as déjà voté sur ce duel"}
+                  </div>
+                  <ShareButton label="Partager ce duel" />
+                </>
               )}
               {isParticipant && <div style={{ fontSize: 12, color: MUTE, textAlign: "center" }}>Tu es dans ce duel, tu ne peux pas voter</div>}
+              {!isParticipant && !hasVoted && <ShareButton label="📤 Partager ce duel" />}
               <button onClick={closeDuel} className="text-center" style={{ fontSize: 12, color: MUTE, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}>Clore ce duel maintenant</button>
             </div>
           )}
