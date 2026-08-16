@@ -1,0 +1,249 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+body { margin: 0; background: #080B12; }
+
+/* =========================================================
+   SPRINTLY — POLISH GLOBAL DES PAGES MOBILES
+   Résultats · Défi · Duels · Duel · Accueil · Créer · Profil · Connexion
+========================================================= */
+
+:root {
+  --sp-bg: #080B12;
+  --sp-card: #11151E;
+  --sp-card-2: #151A24;
+  --sp-border: rgba(255,255,255,.08);
+  --sp-muted: #9AA3B5;
+  --sp-white: #F5F7FB;
+  --sp-lime: #C7FF3A;
+  --sp-gold: #E8B84D;
+  --sp-red: #FF5555;
+  --sp-blue: #4169FF;
+}
+
+* { box-sizing: border-box; }
+
+button, a, input, textarea, select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a {
+  transition:
+    transform .16s ease,
+    box-shadow .16s ease,
+    border-color .16s ease,
+    background .16s ease,
+    opacity .16s ease;
+}
+
+button:active:not(:disabled), a:active {
+  transform: scale(.985);
+}
+
+/* CARTES */
+.rounded-2xl {
+  box-shadow: 0 8px 26px rgba(0,0,0,.12);
+}
+
+/* =========================================================
+   ACCUEIL / DÉFIS
+========================================================= */
+
+.rounded-2xl.border {
+  border-color: var(--sp-border);
+}
+
+h1, h2, h3 {
+  text-wrap: balance;
+}
+
+button.w-full.py-3\.5.rounded-2xl.font-bold,
+button.w-full.rounded-2xl.font-bold {
+  min-height: 52px;
+  box-shadow: 0 12px 28px rgba(199,255,58,.10);
+}
+
+/* =========================================================
+   PAGE DÉFI
+========================================================= */
+
+.rounded-2xl:has(img) {
+  overflow: hidden;
+}
+
+.grid.grid-cols-2 > .rounded-2xl {
+  min-height: 112px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+button.w-full.py-3\.5.rounded-2xl {
+  letter-spacing: -.01em;
+}
+
+/* =========================================================
+   LISTE DES DUELS
+========================================================= */
+
+div.rounded-2xl:has(button) {
+  box-shadow: 0 9px 25px rgba(0,0,0,.15);
+}
+
+div.rounded-2xl:has(button) > button {
+  min-height: 42px;
+  font-weight: 800;
+}
+
+button[style*="C7FF3A"],
+button[style*="#C7FF3A"] {
+  text-shadow: 0 0 16px rgba(199,255,58,.10);
+}
+
+/* =========================================================
+   DUEL INDIVIDUEL
+========================================================= */
+
+button.relative.w-full.h-40.rounded-2xl,
+a.relative.w-full.h-40.rounded-2xl {
+  height: 190px !important;
+  min-height: 190px;
+  box-shadow: 0 16px 36px rgba(0,0,0,.22);
+}
+
+button.relative.w-full.h-40.rounded-2xl:hover,
+a.relative.w-full.h-40.rounded-2xl:hover {
+  transform: translateY(-1px);
+}
+
+button.relative.w-full.h-40.rounded-2xl > div:first-child > div:last-child,
+a.relative.w-full.h-40.rounded-2xl > div:first-child > div:last-child {
+  width: 44px !important;
+  height: 44px !important;
+  box-shadow: 0 8px 20px rgba(0,0,0,.22);
+}
+
+button.relative.w-full.h-40.rounded-2xl > div:first-child > span,
+a.relative.w-full.h-40.rounded-2xl > div:first-child > span {
+  padding: 7px 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: .02em;
+}
+
+button.relative.w-full.h-40.rounded-2xl > div:nth-child(2) > div:first-child,
+a.relative.w-full.h-40.rounded-2xl > div:nth-child(2) > div:first-child {
+  font-size: 16px !important;
+}
+
+button.relative.w-full.h-40.rounded-2xl + div,
+a.relative.w-full.h-40.rounded-2xl + div {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.flex.items-center.justify-center.gap-6 {
+  min-height: 44px;
+  color: var(--sp-muted);
+}
+
+/* =========================================================
+   RÉSULTATS / HALL OF FAME
+========================================================= */
+
+input[placeholder="Chercher un défi ou un pseudo…"] {
+  font-size: 15px !important;
+}
+
+input[placeholder="Chercher un défi ou un pseudo…"]:focus {
+  box-shadow: 0 0 0 3px rgba(232,184,77,.09);
+}
+
+.flex.gap-2.overflow-x-auto {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 4px;
+}
+
+.flex.gap-2.overflow-x-auto::-webkit-scrollbar {
+  display: none;
+}
+
+.overflow-hidden.rounded-2xl > div:first-child {
+  background: linear-gradient(100deg, rgba(232,184,77,.08), transparent 62%);
+}
+
+/* =========================================================
+   CRÉER UN DÉFI
+========================================================= */
+
+input, textarea, select {
+  outline: none;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: rgba(199,255,58,.45) !important;
+  box-shadow: 0 0 0 3px rgba(199,255,58,.07);
+}
+
+textarea {
+  resize: vertical;
+}
+
+input, textarea, select {
+  min-height: 46px;
+}
+
+/* =========================================================
+   PROFIL
+========================================================= */
+
+.grid.grid-cols-2 > div {
+  box-shadow: 0 9px 24px rgba(0,0,0,.14);
+}
+
+[class*="uppercase"] {
+  letter-spacing: .04em;
+}
+
+/* =========================================================
+   CONNEXION
+========================================================= */
+
+form input {
+  background: rgba(17,21,30,.92);
+}
+
+form button[type="submit"] {
+  min-height: 52px;
+  font-weight: 800;
+  box-shadow: 0 12px 28px rgba(199,255,58,.10);
+}
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 640px) {
+  button.relative.w-full.h-40.rounded-2xl,
+  a.relative.w-full.h-40.rounded-2xl {
+    height: 184px !important;
+    min-height: 184px;
+  }
+
+  .max-w-2xl.mx-auto.w-full {
+    width: 100%;
+  }
+
+  button, a {
+    touch-action: manipulation;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+  }
+}
