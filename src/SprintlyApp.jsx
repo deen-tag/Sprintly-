@@ -21,7 +21,7 @@ const GOLD = "#E8B84D";
 const INK = "#0A0D14";
 const INK2 = "#12161F";
 const CHALK = "#F3F1EA";
-const MUTE = "#8891A3";
+const MUTE = "#9AA3B5"; // texte secondaire, éclairci pour rester lisible sur fond très sombre
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');`;
 const display = { fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.02em" };
