@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Play, Trophy, Dices, Share2, Swords, User, Flame, Check, Lock,
-  Plus, ArrowLeft, ExternalLink, Copy, RefreshCw, Users, Clock, X, Crown,
+  Plus, ArrowLeft, ExternalLink, Copy, RefreshCw, Users, Clock, X, Search,
 } from "lucide-react";
 import * as api from "./lib/api.js";
 
@@ -529,12 +529,9 @@ function HomePage({ nav, toast }) {
         </div>
       )}
 
-      <div className="px-5 mt-6 flex gap-2">
-        <button onClick={() => nav("profile")} className="flex-1 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5" style={{ background: "transparent", border: "1px solid #FFFFFF22", color: MUTE, cursor: "pointer" }}>
+      <div className="px-5 mt-6">
+        <button onClick={() => nav("profile")} className="w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5" style={{ background: "transparent", border: "1px solid #FFFFFF22", color: MUTE, cursor: "pointer" }}>
           <User size={13} /> Mon profil
-        </button>
-        <button onClick={() => nav("halloffame")} className="flex-1 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5" style={{ background: "transparent", border: "1px solid #FFFFFF22", color: MUTE, cursor: "pointer" }}>
-          <Crown size={13} /> Hall of Fame
         </button>
       </div>
     </div>
@@ -1171,40 +1168,75 @@ function ProfilePage({ pseudo, nav, toast }) {
   );
 }
 
-function HallOfFamePage() {
-  const [index, setIndex] = useState(null);
-  const [detail, setDetail] = useState({});
-  useEffect(() => {
-    (async () => {
-      const idx = await api.loadIndex();
-      const closed = idx.filter((c) => c.status === "closed");
-      setIndex(closed);
-      const d = {};
-      for (const c of closed) d[c.id] = await api.loadChallenge(c.id);
-      setDetail(d);
-    })();
+function HallOfFamePage({ nav }) {
+  const PAGE_SIZE = 10;
+  const [query, setQuery] = useState("");
+  const [items, setItems] = useState(null); // null = chargement de la première page
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const fetchPage = useCallback(async (q, off, replace) => {
+    const results = await api.searchClosedChallenges({ query: q, limit: PAGE_SIZE, offset: off });
+    setHasMore(results.length === PAGE_SIZE);
+    setItems((prev) => (replace ? results : [...(prev || []), ...results]));
   }, []);
-  if (index === null) return <Loading />;
+
+  // Nouvelle recherche (ou arrivée sur la page) : on repart de zéro.
+  useEffect(() => {
+    setItems(null);
+    setOffset(0);
+    fetchPage(query, 0, true);
+  }, [query, fetchPage]);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    const nextOffset = offset + PAGE_SIZE;
+    await fetchPage(query, nextOffset, false);
+    setOffset(nextOffset);
+    setLoadingMore(false);
+  };
+
   return (
-    <div className="max-w-2xl mx-auto w-full px-5 pb-10 flex flex-col gap-2">
-      {index.length === 0 && <div style={{ fontSize: 13, color: MUTE }}>Aucun défi terminé pour l'instant.</div>}
-      {index.map((c) => {
-        const ch = detail[c.id];
-        const winners = ch ? ch.duels.filter((d) => d.winner).map((d) => (d.winner === "A" ? d.a?.pseudo : d.b?.pseudo)).filter(Boolean) : [];
-        return (
-          <div key={c.id} className="rounded-2xl p-4" style={{ background: `linear-gradient(120deg, ${GOLD}1A, ${INK2})`, border: `1px solid ${GOLD}44` }}>
-            <div style={{ fontSize: 10, color: MUTE }} className="uppercase mb-1">{c.emoji} {c.title}</div>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>{ch?.participants.length || 0} participants · {ch?.duels.length || 0} duels · {winners.length} trophées remportés</div>
-            <div className="flex flex-wrap gap-1.5">
-              {winners.map((w, i) => (
-                <span key={i} className="px-2 py-1 rounded-full text-[11px] font-medium flex items-center gap-1" style={{ background: `${GOLD}18`, border: `1px solid ${GOLD}44`, color: CHALK }}>
-                  <Trophy size={10} color={GOLD} /> {w}
-                </span>
-              ))}
-            </div>
-          </div>
-        );
-      })}
+    <div className="max-w-2xl mx-auto w-full px-5 pb-10 flex flex-col gap-3">
+      <div className="rounded-2xl flex items-center gap-2 px-3.5" style={{ background: INK2, border: "1px solid #FFFFFF14", height: 42 }}>
+        <Search size={15} color={MUTE} />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Chercher un défi ou un pseudo…"
+          className="flex-1 bg-transparent outline-none"
+          style={{ color: CHALK, fontSize: 13, ...body }}
+        />
+      </div>
+
+      {items === null && <Loading />}
+
+      {items !== null && items.length === 0 && (
+        <div style={{ fontSize: 13, color: MUTE }}>
+          {query ? "Aucun résultat pour cette recherche." : "Aucun défi terminé pour l'instant."}
+        </div>
+      )}
+
+      {items !== null && items.map((c) => (
+        <div key={c.id} className="rounded-2xl p-4" style={{ background: `linear-gradient(120deg, ${GOLD}1A, ${INK2})`, border: `1px solid ${GOLD}44` }}>
+          <div style={{ fontSize: 10, color: MUTE }} className="uppercase mb-1">{c.emoji} {c.title}</div>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>{c.participantsCount} participants · {c.duelsCount} duels</div>
+          <button
+            onClick={() => nav("challenge", { id: c.id })}
+            className="flex items-center gap-1.5"
+            style={{ background: "transparent", border: "none", cursor: "pointer", color: GOLD, fontSize: 12, fontWeight: 700 }}
+          >
+            <Trophy size={13} /> Voir tous les gagnants →
+          </button>
+        </div>
+      ))}
+
+      {items !== null && items.length > 0 && hasMore && (
+        <Button variant="ghost" onClick={loadMore} disabled={loadingMore}>
+          {loadingMore ? "Chargement…" : "Voir plus"}
+        </Button>
+      )}
     </div>
   );
 }
@@ -1495,7 +1527,7 @@ export default function SprintlyApp() {
       case "duels": return "⚔️ LES DUELS";
       case "duel": return null;
       case "profile": return "PROFIL";
-      case "halloffame": return "HALL OF FAME";
+      case "halloffame": return "RÉSULTATS";
       case "browse": return "DÉFIS";
       default: return null;
     }
@@ -1534,7 +1566,7 @@ export default function SprintlyApp() {
         {route.view === "duels" && <DuelsListPage id={route.id} nav={nav} pseudo={pseudo} />}
         {route.view === "duel" && <DuelPage id={route.id} duelId={route.duelId} nav={nav} pseudo={pseudo} toast={toast} />}
         {route.view === "profile" && <ProfilePage pseudo={pseudo} nav={nav} toast={toast} />}
-        {route.view === "halloffame" && <HallOfFamePage />}
+        {route.view === "halloffame" && <HallOfFamePage nav={nav} />}
       </div>
 
       <BottomNav nav={nav} route={route} />
