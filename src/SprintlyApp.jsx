@@ -1067,7 +1067,7 @@ export default function SprintlyApp() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col" style={{ background: INK, color: CHALK, ...body }}>
+    <div className="w-full flex flex-col" style={{ minHeight: "100dvh", background: INK, color: CHALK, ...body }}>
       <style>{FONTS}</style>
       <PseudoBar pseudo={pseudo} setPseudo={setPseudo} nav={nav} />
       <div className="max-w-2xl mx-auto w-full px-5 pt-2">
