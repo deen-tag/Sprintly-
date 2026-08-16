@@ -247,7 +247,7 @@ function Toast({ message, onDone }) {
 
 /* ---------------- Pseudo bar (persistent identity within session) ---------------- */
 
-function AccountBar({ nav, toast }) {
+function AccountBar({ nav, toast, refreshSignal, onAccountChange }) {
   const [session, setSession] = useState(undefined); // undefined = chargement
   const [myPseudo, setMyPseudoState] = useState(null);
   const [step, setStep] = useState("idle"); // idle | email | sent | pseudo
@@ -261,7 +261,7 @@ function AccountBar({ nav, toast }) {
     setMyPseudoState(s ? await api.getMyPseudo() : null);
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { refresh(); }, [refresh, refreshSignal]);
   useEffect(() => api.onAuthStateChange(() => refresh()), [refresh]);
 
   // Juste après la connexion, si le compte n'a pas encore de pseudo, on le demande.
@@ -289,6 +289,7 @@ function AccountBar({ nav, toast }) {
       const p = await api.setMyPseudo(pseudoDraft.trim());
       setMyPseudoState(p);
       setStep("idle");
+      onAccountChange?.();
     } catch (e) {
       toast(e.message);
     } finally {
@@ -361,14 +362,14 @@ function AccountBar({ nav, toast }) {
   );
 }
 
-function HeaderBar({ nav, toast }) {
+function HeaderBar({ nav, toast, refreshSignal, onAccountChange }) {
   return (
     <div className="w-full" style={{ borderBottom: "1px solid #FFFFFF0F", background: "#070A10" }}>
       <div className="max-w-2xl mx-auto px-5 py-2.5 flex items-center justify-between gap-3">
         <button onClick={() => nav("home")} className="flex items-center gap-2" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
           <div style={{ ...display, fontSize: 16, color: LIME, letterSpacing: "0.08em" }}>SPRINTLY</div>
         </button>
-        <AccountBar nav={nav} toast={toast} />
+        <AccountBar nav={nav} toast={toast} refreshSignal={refreshSignal} onAccountChange={onAccountChange} />
       </div>
     </div>
   );
@@ -756,7 +757,7 @@ function ChallengePage({ id, nav, pseudo, toast }) {
 
 const PENDING_JOIN_KEY = "sprintly_pending_join";
 
-function JoinPage({ id, nav, toast }) {
+function JoinPage({ id, nav, toast, onPseudoMayHaveChanged }) {
   const [link, setLink] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -775,6 +776,7 @@ function JoinPage({ id, nav, toast }) {
       await api.joinChallenge(id, name.trim(), link.trim());
       localStorage.removeItem(PENDING_JOIN_KEY);
       toast("Participation envoyée 🎉");
+      onPseudoMayHaveChanged?.();
       nav("challenge", { id });
     } catch (e) {
       toast(e.message);
@@ -1440,6 +1442,8 @@ export default function SprintlyApp() {
   const [route, setRoute] = useState(() => (typeof window !== "undefined" ? parseHash() : { view: "home" }));
   const [pseudo, setPseudoState] = useState(null); // pseudo lié au compte connecté, ou null
   const [toastMsg, setToastMsg] = useState(null);
+  const [refreshSignal, setRefreshSignal] = useState(0);
+  const bumpRefresh = () => setRefreshSignal((n) => n + 1);
 
   useEffect(() => {
     const onHash = () => setRoute(parseHash());
@@ -1456,7 +1460,7 @@ export default function SprintlyApp() {
     const sync = () => api.getMyPseudo().then(setPseudoState).catch(() => setPseudoState(null));
     sync();
     return api.onAuthStateChange(sync);
-  }, []);
+  }, [refreshSignal]);
 
   // Après un clic sur le lien magique reçu par email, l'utilisateur revient
   // ici déjà connecté : on termine automatiquement l'envoi de sa vidéo,
@@ -1471,6 +1475,7 @@ export default function SprintlyApp() {
         await api.joinChallenge(pending.id, pending.name, pending.link);
         localStorage.removeItem(PENDING_JOIN_KEY);
         toast("Participation envoyée 🎉");
+        bumpRefresh();
         nav("challenge", { id: pending.id });
       } catch (e) {
         localStorage.removeItem(PENDING_JOIN_KEY);
@@ -1506,7 +1511,7 @@ export default function SprintlyApp() {
   return (
     <div className="w-full flex flex-col" style={{ minHeight: "100dvh", background: INK, color: CHALK, ...body }}>
       <style>{FONTS}</style>
-      <HeaderBar nav={nav} toast={toast} />
+      <HeaderBar nav={nav} toast={toast} refreshSignal={refreshSignal} onAccountChange={bumpRefresh} />
       <div className="max-w-2xl mx-auto w-full px-5 pt-2">
         <Seam progress={100} />
       </div>
@@ -1525,7 +1530,7 @@ export default function SprintlyApp() {
         {route.view === "browse" && <BrowsePage initialTab={route.tab} nav={nav} toast={toast} />}
         {route.view === "create" && <CreatePage nav={nav} pseudo={pseudo} toast={toast} />}
         {route.view === "challenge" && <ChallengePage id={route.id} nav={nav} pseudo={pseudo} toast={toast} />}
-        {route.view === "join" && <JoinPage id={route.id} nav={nav} toast={toast} />}
+        {route.view === "join" && <JoinPage id={route.id} nav={nav} toast={toast} onPseudoMayHaveChanged={bumpRefresh} />}
         {route.view === "duels" && <DuelsListPage id={route.id} nav={nav} pseudo={pseudo} />}
         {route.view === "duel" && <DuelPage id={route.id} duelId={route.duelId} nav={nav} pseudo={pseudo} toast={toast} />}
         {route.view === "profile" && <ProfilePage pseudo={pseudo} nav={nav} toast={toast} />}
