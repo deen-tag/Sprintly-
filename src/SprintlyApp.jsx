@@ -1176,9 +1176,11 @@ function HallOfFamePage({ nav }) {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [winners, setWinners] = useState(null); // null = chargement, [] = vide/erreur
+  const [topWinners, setTopWinners] = useState(null); // null = chargement, [] = vide/erreur
 
   useEffect(() => {
     api.loadRecentWinners({ limit: 8 }).then(setWinners).catch(() => setWinners([]));
+    api.loadTopWinners({ limit: 5 }).then(setTopWinners).catch(() => setTopWinners([]));
   }, []);
 
   const fetchPage = useCallback(async (q, off, replace) => {
@@ -1234,6 +1236,38 @@ function HallOfFamePage({ nav }) {
                 <span style={{ fontSize: 12, fontWeight: 700, color: CHALK, ...body }}>{w.pseudo}</span>
                 <span style={{ fontSize: 14 }}>{w.challengeEmoji}</span>
               </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {topWinners && topWinners.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, color: MUTE, fontWeight: 700, letterSpacing: "0.08em" }} className="uppercase mb-2">Top joueurs</div>
+          <div className="rounded-2xl overflow-hidden" style={{ background: INK2, border: `1px solid ${GOLD}33` }}>
+            {topWinners.map((w, i) => (
+              <div
+                key={w.pseudo}
+                className="flex items-center gap-3 px-4 py-3"
+                style={{ borderTop: i === 0 ? "none" : "1px solid #FFFFFF0F" }}
+              >
+                <div
+                  className="flex items-center justify-center flex-shrink-0"
+                  style={{
+                    width: 26, height: 26, borderRadius: "50%",
+                    background: i === 0 ? `${GOLD}2A` : i === 1 ? "#C0C0C02A" : i === 2 ? "#CD7F322A" : "transparent",
+                    color: i === 0 ? GOLD : i === 1 ? "#C0C0C0" : i === 2 ? "#CD7F32" : MUTE,
+                    fontSize: 12, fontWeight: 800, ...display,
+                  }}
+                >
+                  {i + 1}
+                </div>
+                <div className="flex-1" style={{ fontSize: 14, fontWeight: 700, color: CHALK, ...body }}>{w.pseudo}</div>
+                <div className="flex items-center gap-1.5">
+                  <Trophy size={13} color={GOLD} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: GOLD, ...mono }}>{w.wins}</span>
+                </div>
+              </div>
             ))}
           </div>
         </div>
