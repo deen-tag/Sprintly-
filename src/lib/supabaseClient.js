@@ -10,4 +10,13 @@ if (!url || !key) {
   );
 }
 
-export const supabase = createClient(url, key);
+export const supabase = createClient(url, key, {
+  auth: {
+    // L'app utilise déjà le # de l'URL pour sa propre navigation (#join?id=...).
+    // Le flow par défaut de Supabase renvoie aussi ses jetons dans le #, ce qui
+    // écrase/casse la route de l'app. Le flow PKCE utilise ?code=... à la place,
+    // qui ne rentre jamais en collision avec le routeur.
+    flowType: "pkce",
+    detectSessionInUrl: true,
+  },
+});

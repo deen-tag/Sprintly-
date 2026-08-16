@@ -189,7 +189,10 @@ export async function hasVoted(duelId) {
 export async function sendMagicLink(email) {
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim(),
-    options: { emailRedirectTo: window.location.href },
+    // On renvoie vers la racine du site (pas l'URL avec #join?id=..., pour éviter
+    // toute collision avec le routeur de l'app). La participation en attente est
+    // reprise via localStorage + onAuthStateChange, peu importe la page d'arrivée.
+    options: { emailRedirectTo: window.location.origin + window.location.pathname },
   });
   if (error) throw new Error("Impossible d'envoyer l'email. Vérifie l'adresse.");
 }
