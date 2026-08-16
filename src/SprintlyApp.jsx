@@ -877,11 +877,13 @@ function ProfilePage({ pseudo, nav, toast }) {
   const [name, setName] = useState(pseudo || "");
   const [user, setUser] = useState(undefined);
   const [stats, setStats] = useState(null);
+  const [participations, setParticipations] = useState([]);
 
   const search = useCallback(async (p) => {
     if (!p) return;
     setUser(await api.loadUser(p));
     setStats(await api.loadUserStats(p));
+    setParticipations(await api.loadMyParticipations(p));
   }, []);
   useEffect(() => { search(pseudo); }, [pseudo, search]);
 
@@ -923,6 +925,24 @@ function ProfilePage({ pseudo, nav, toast }) {
               </div>
             </div>
           )}
+          <div style={{ fontSize: 11, color: MUTE, fontWeight: 700 }} className="uppercase mb-2">Mes participations</div>
+          <div className="flex flex-col gap-2 mb-5">
+            {participations.length === 0 && <div style={{ fontSize: 13, color: MUTE }}>Tu n'as encore rejoint aucun défi.</div>}
+            {participations.map((p, i) => (
+              <button
+                key={i}
+                onClick={() => nav("challenge", { id: p.challengeId })}
+                className="rounded-2xl p-3 flex items-center justify-between text-left"
+                style={{ background: INK2, border: "1px solid #FFFFFF10", cursor: "pointer" }}
+              >
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{p.emoji} {p.title}</div>
+                <Chip color={p.status === "open" ? LIME : p.status === "drawn" ? GOLD : MUTE}>
+                  {p.status === "open" ? "ouvert" : p.status === "drawn" ? "duels en cours" : "terminé"}
+                </Chip>
+              </button>
+            ))}
+          </div>
+
           <div style={{ fontSize: 11, color: MUTE, fontWeight: 700 }} className="uppercase mb-2">Collection de trophées</div>
           <div className="flex flex-col gap-2">
             {user.trophies.length === 0 && <div style={{ fontSize: 13, color: MUTE }}>Pas encore de trophée.</div>}
