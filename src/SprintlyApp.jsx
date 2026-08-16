@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Play, Trophy, Dices, Share2, Swords, User, Flame, Check, Lock,
-  Plus, ArrowLeft, ExternalLink, Copy, RefreshCw, Users, Clock, X, Search,
+  Plus, ArrowLeft, ExternalLink, Copy, RefreshCw, Users, Clock, X, Search, ChevronDown,
 } from "lucide-react";
 import * as api from "./lib/api.js";
 
@@ -1169,17 +1169,26 @@ function ProfilePage({ pseudo, nav, toast }) {
 }
 
 function HallOfFamePage({ nav }) {
-  const PAGE_SIZE = 10;
+  const PAGE_SIZE = 5;
   const [query, setQuery] = useState("");
-  const [items, setItems] = useState(null); // null = chargement de la première page
+  const [items, setItems] = useState(null); // null = chargement, [] = vide, undefined = erreur
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [winners, setWinners] = useState(null); // null = chargement, [] = vide/erreur
+
+  useEffect(() => {
+    api.loadRecentWinners({ limit: 8 }).then(setWinners).catch(() => setWinners([]));
+  }, []);
 
   const fetchPage = useCallback(async (q, off, replace) => {
-    const results = await api.searchClosedChallenges({ query: q, limit: PAGE_SIZE, offset: off });
-    setHasMore(results.length === PAGE_SIZE);
-    setItems((prev) => (replace ? results : [...(prev || []), ...results]));
+    try {
+      const results = await api.searchClosedChallenges({ query: q, limit: PAGE_SIZE, offset: off });
+      setHasMore(results.length === PAGE_SIZE);
+      setItems((prev) => (replace ? results : [...(prev || []), ...results]));
+    } catch (e) {
+      setItems(undefined); // état d'erreur explicite, distinct du "vide"
+    }
   }, []);
 
   // Nouvelle recherche (ou arrivée sur la page) : on repart de zéro.
@@ -1210,15 +1219,39 @@ function HallOfFamePage({ nav }) {
         />
       </div>
 
+      {winners && winners.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, color: MUTE, fontWeight: 700, letterSpacing: "0.08em" }} className="uppercase mb-2">Derniers gagnants</div>
+          <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+            {winners.map((w) => (
+              <button
+                key={w.duelId}
+                onClick={() => nav("challenge", { id: w.challengeId })}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full flex-shrink-0"
+                style={{ background: `${GOLD}14`, border: `1px solid ${GOLD}44`, cursor: "pointer" }}
+              >
+                <Trophy size={12} color={GOLD} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: CHALK, ...body }}>{w.pseudo}</span>
+                <span style={{ fontSize: 14 }}>{w.challengeEmoji}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {items === null && <Loading />}
 
-      {items !== null && items.length === 0 && (
+      {items === undefined && (
+        <div style={{ fontSize: 13, color: MUTE }}>Le chargement des résultats a échoué. Réessaie dans un instant.</div>
+      )}
+
+      {items !== null && items !== undefined && items.length === 0 && (
         <div style={{ fontSize: 13, color: MUTE }}>
           {query ? "Aucun résultat pour cette recherche." : "Aucun défi terminé pour l'instant."}
         </div>
       )}
 
-      {items !== null && items.map((c) => (
+      {items !== null && items !== undefined && items.map((c) => (
         <div key={c.id} className="rounded-2xl p-4" style={{ background: `linear-gradient(120deg, ${GOLD}1A, ${INK2})`, border: `1px solid ${GOLD}44` }}>
           <div style={{ fontSize: 10, color: MUTE }} className="uppercase mb-1">{c.emoji} {c.title}</div>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>{c.participantsCount} participants · {c.duelsCount} duels</div>
@@ -1232,10 +1265,15 @@ function HallOfFamePage({ nav }) {
         </div>
       ))}
 
-      {items !== null && items.length > 0 && hasMore && (
-        <Button variant="ghost" onClick={loadMore} disabled={loadingMore}>
-          {loadingMore ? "Chargement…" : "Voir plus"}
-        </Button>
+      {items !== null && items !== undefined && items.length > 0 && hasMore && (
+        <button
+          onClick={loadMore}
+          disabled={loadingMore}
+          className="w-full flex items-center justify-center gap-1.5 py-2.5"
+          style={{ background: "transparent", border: "none", cursor: loadingMore ? "not-allowed" : "pointer", color: MUTE, fontSize: 12, opacity: loadingMore ? 0.5 : 1 }}
+        >
+          {loadingMore ? "Chargement…" : `Voir ${PAGE_SIZE} de plus`} <ChevronDown size={14} />
+        </button>
       )}
     </div>
   );
