@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Play, Trophy, Dices, Share2, Swords, User, Flame, Check, Lock,
-  Plus, ArrowLeft, ExternalLink, Copy, RefreshCw, Users, Clock, X,
+  Plus, ArrowLeft, ExternalLink, Copy, RefreshCw, Users, Clock, X, Crown,
 } from "lucide-react";
 import * as api from "./lib/api.js";
 
@@ -239,7 +239,7 @@ function Toast({ message, onDone }) {
     return () => clearTimeout(t);
   }, [onDone]);
   return (
-    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-full z-50" style={{ background: CHALK, color: INK, ...body, fontSize: 13, fontWeight: 600, boxShadow: "0 10px 30px rgba(0,0,0,0.4)" }}>
+    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-full z-50" style={{ background: CHALK, color: INK, ...body, fontSize: 13, fontWeight: 600, boxShadow: "0 10px 30px rgba(0,0,0,0.4)" }}>
       {message}
     </div>
   );
@@ -340,10 +340,10 @@ function AccountBar({ nav, toast }) {
     return (
       <button
         onClick={() => setStep("email")}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+        className="flex items-center gap-1.5 px-3.5 py-2 rounded-full"
         style={{ background: LIME, border: "none", cursor: "pointer" }}
       >
-        <User size={12} color={INK} />
+        <User size={13} color={INK} />
         <span style={{ fontSize: 12, color: INK, fontWeight: 700, ...body }}>Se connecter</span>
       </button>
     );
@@ -352,10 +352,10 @@ function AccountBar({ nav, toast }) {
   return (
     <button
       onClick={() => nav("profile")}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+      className="flex items-center gap-1.5 px-3.5 py-2 rounded-full"
       style={{ background: INK2, border: "1px solid #FFFFFF18", cursor: "pointer" }}
     >
-      <User size={12} color={MUTE} />
+      <User size={13} color={MUTE} />
       <span style={{ fontSize: 12, color: CHALK, ...body }}>{myPseudo || "…"}</span>
     </button>
   );
@@ -369,6 +369,48 @@ function HeaderBar({ nav, toast }) {
           <div style={{ ...display, fontSize: 16, color: LIME, letterSpacing: "0.08em" }}>SPRINTLY</div>
         </button>
         <AccountBar nav={nav} toast={toast} />
+      </div>
+    </div>
+  );
+}
+
+function activeNavKey(route) {
+  if (route.view === "create") return "creer";
+  if (route.view === "profile") return "profil";
+  if (route.view === "browse") return route.tab === "drawn" ? "duels" : "defis";
+  if (route.view === "duels" || route.view === "duel") return "duels";
+  if (route.view === "challenge" || route.view === "join" || route.view === "home") return "defis";
+  return null;
+}
+
+function BottomNav({ nav, route }) {
+  const active = activeNavKey(route);
+  const items = [
+    { key: "defis", label: "Défis", icon: Flame, onClick: () => nav("browse", { tab: "open" }) },
+    { key: "duels", label: "Duels", icon: Swords, onClick: () => nav("browse", { tab: "drawn" }) },
+    { key: "creer", label: "Créer", icon: Plus, onClick: () => nav("create") },
+    { key: "profil", label: "Profil", icon: User, onClick: () => nav("profile") },
+  ];
+  return (
+    <div
+      className="fixed bottom-0 left-0 right-0 z-40"
+      style={{ background: "#070A10", borderTop: "1px solid #FFFFFF14", paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
+      <div className="max-w-2xl mx-auto w-full flex items-stretch px-2">
+        {items.map(({ key, label, icon: Icon, onClick }) => {
+          const isActive = active === key;
+          return (
+            <button
+              key={key}
+              onClick={onClick}
+              className="flex-1 flex flex-col items-center justify-center gap-1 py-2.5"
+              style={{ background: "transparent", border: "none", cursor: "pointer" }}
+            >
+              <Icon size={20} color={isActive ? LIME : MUTE} />
+              <span style={{ fontSize: 10, fontWeight: isActive ? 700 : 500, color: isActive ? LIME : MUTE, ...body }}>{label}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -413,13 +455,13 @@ function HomePage({ nav, toast }) {
       <div style={{ ...display, fontSize: 18, marginTop: 8 }}>{title}</div>
       <div style={{ fontSize: 11, color: MUTE, marginTop: 2 }}>{subtitle}</div>
       {badge != null && (
-        <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full" style={{ background: `${GOLD}22`, border: `1px solid ${GOLD}55`, fontSize: 10, color: GOLD, fontWeight: 700 }}>{badge}</div>
+        <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full whitespace-nowrap" style={{ background: `${GOLD}22`, border: `1px solid ${GOLD}55`, fontSize: 10, color: GOLD, fontWeight: 700 }}>{badge}</div>
       )}
     </button>
   );
 
   return (
-    <div className="max-w-2xl mx-auto w-full pb-10">
+    <div className="max-w-2xl mx-auto w-full">
       <div className="px-5 pb-2 pt-1" style={{ color: MUTE, fontSize: 13 }}>
         Relève le défi. Affronte quelqu'un. Prouve-le.
       </div>
@@ -447,7 +489,7 @@ function HomePage({ nav, toast }) {
       {/* Hub de navigation, 2x2 */}
       <div className="px-5 mt-6 grid grid-cols-2 gap-3">
         <NavCard icon={Flame} title="Défis" subtitle="Découvrir et participer" gradient={`linear-gradient(135deg, ${CORAL}22, ${INK2})`} onClick={() => nav("browse", { tab: "open" })} />
-        <NavCard icon={Swords} title="Duels" subtitle="Voter maintenant" badge={drawn.length > 0 ? drawn.length : null} gradient={`linear-gradient(135deg, ${GOLD}22, ${INK2})`} onClick={() => nav("browse", { tab: "drawn" })} />
+        <NavCard icon={Swords} title="Duels" subtitle="Voter maintenant" badge={drawn.length > 0 ? `${drawn.length} à voter` : null} gradient={`linear-gradient(135deg, ${GOLD}22, ${INK2})`} onClick={() => nav("browse", { tab: "drawn" })} />
         <NavCard icon={Plus} title="Créer" subtitle="Lance ton défi" gradient={`linear-gradient(135deg, ${LIME}22, ${INK2})`} onClick={() => nav("create")} />
         <NavCard icon={Trophy} title="Résultats" subtitle="Voir les gagnants" gradient={`linear-gradient(135deg, ${COBALT}22, ${INK2})`} onClick={() => nav("halloffame")} />
       </div>
@@ -486,12 +528,12 @@ function HomePage({ nav, toast }) {
         </div>
       )}
 
-      <div className="px-5 mt-8 flex gap-2">
-        <button onClick={() => nav("profile")} className="flex-1 py-2.5 rounded-xl text-xs font-semibold" style={{ background: "transparent", border: "1px solid #FFFFFF22", color: MUTE, cursor: "pointer" }}>
-          👤 Mon profil
+      <div className="px-5 mt-6 flex gap-2">
+        <button onClick={() => nav("profile")} className="flex-1 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5" style={{ background: "transparent", border: "1px solid #FFFFFF22", color: MUTE, cursor: "pointer" }}>
+          <User size={13} /> Mon profil
         </button>
-        <button onClick={() => nav("halloffame")} className="flex-1 py-2.5 rounded-xl text-xs font-semibold" style={{ background: "transparent", border: "1px solid #FFFFFF22", color: MUTE, cursor: "pointer" }}>
-          👑 Hall of Fame
+        <button onClick={() => nav("halloffame")} className="flex-1 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5" style={{ background: "transparent", border: "1px solid #FFFFFF22", color: MUTE, cursor: "pointer" }}>
+          <Crown size={13} /> Hall of Fame
         </button>
       </div>
     </div>
@@ -1478,7 +1520,7 @@ export default function SprintlyApp() {
         </div>
       )}
 
-      <div className="flex-1">
+      <div className="flex-1 pb-24">
         {route.view === "home" && <HomePage nav={nav} toast={toast} />}
         {route.view === "browse" && <BrowsePage initialTab={route.tab} nav={nav} toast={toast} />}
         {route.view === "create" && <CreatePage nav={nav} pseudo={pseudo} toast={toast} />}
@@ -1490,11 +1532,7 @@ export default function SprintlyApp() {
         {route.view === "halloffame" && <HallOfFamePage />}
       </div>
 
-      <div className="max-w-2xl mx-auto w-full px-5 py-4 flex gap-2" style={{ borderTop: "1px solid #FFFFFF0F" }}>
-        <button onClick={() => nav("home")} className="flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5" style={{ background: route.view === "home" ? LIME : "transparent", color: route.view === "home" ? INK : MUTE, border: `1px solid ${route.view === "home" ? LIME : "#FFFFFF22"}`, cursor: "pointer" }}>Défis</button>
-        <button onClick={() => nav("profile")} className="flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5" style={{ background: route.view === "profile" ? COBALT : "transparent", color: route.view === "profile" ? INK : MUTE, border: `1px solid ${route.view === "profile" ? COBALT : "#FFFFFF22"}`, cursor: "pointer" }}>Profil</button>
-        <button onClick={() => nav("halloffame")} className="flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5" style={{ background: route.view === "halloffame" ? GOLD : "transparent", color: route.view === "halloffame" ? INK : MUTE, border: `1px solid ${route.view === "halloffame" ? GOLD : "#FFFFFF22"}`, cursor: "pointer" }}>Hall of Fame</button>
-      </div>
+      <BottomNav nav={nav} route={route} />
 
       {toastMsg && <Toast message={toastMsg} onDone={() => setToastMsg(null)} />}
     </div>
