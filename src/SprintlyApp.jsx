@@ -1055,7 +1055,7 @@ function DuelPage({ id, duelId, nav, pseudo, toast }) {
   );
 }
 
-function ProfilePage({ pseudo, nav, toast }) {
+function ProfilePage({ pseudo, nav, toast, viewPseudo }) {
   const [name, setName] = useState(pseudo || "");
   const [user, setUser] = useState(undefined);
   const [stats, setStats] = useState(null);
@@ -1069,10 +1069,18 @@ function ProfilePage({ pseudo, nav, toast }) {
     setParticipations(await api.loadMyParticipations(p));
   }, []);
 
-  // À l'arrivée sur la page, si un compte est connecté, on affiche direct
-  // son activité (défis, vidéos, trophées) sans qu'il ait à taper son pseudo.
+  // À l'arrivée sur la page :
+  // - si on vient d'un lien "voir le profil de X" (Résultats), on affiche direct ce profil ;
+  // - sinon, si un compte est connecté, on affiche direct son activité (défis, vidéos, trophées)
+  //   sans qu'il ait à taper son pseudo.
   useEffect(() => {
     (async () => {
+      if (viewPseudo) {
+        setName(viewPseudo);
+        setIsMe(false);
+        search(viewPseudo);
+        return;
+      }
       const myPseudo = await api.getMyPseudo();
       if (myPseudo) {
         setName(myPseudo);
@@ -1082,7 +1090,7 @@ function ProfilePage({ pseudo, nav, toast }) {
         search(pseudo);
       }
     })();
-  }, [pseudo, search]);
+  }, [pseudo, search, viewPseudo]);
 
   return (
     <div className="max-w-2xl mx-auto w-full px-5 pb-10">
@@ -1176,9 +1184,11 @@ function HallOfFamePage({ nav }) {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [winners, setWinners] = useState(null); // null = chargement, [] = vide/erreur
+  const [topPlayers, setTopPlayers] = useState(null); // null = chargement, [] = vide/erreur
 
   useEffect(() => {
     api.loadRecentWinners({ limit: 8 }).then(setWinners).catch(() => setWinners([]));
+    api.loadTopWinners({ limit: 5 }).then(setTopPlayers).catch(() => setTopPlayers([]));
   }, []);
 
   const fetchPage = useCallback(async (q, off, replace) => {
@@ -1219,6 +1229,16 @@ function HallOfFamePage({ nav }) {
         />
       </div>
 
+      {query.trim() && (
+        <button
+          onClick={() => nav("profile", { user: query.trim() })}
+          className="flex items-center gap-1.5"
+          style={{ background: "transparent", border: "none", cursor: "pointer", color: COBALT, fontSize: 12, fontWeight: 700 }}
+        >
+          <User size={13} /> Voir le profil de « {query.trim()} » →
+        </button>
+      )}
+
       {winners && winners.length > 0 && (
         <div>
           <div style={{ fontSize: 11, color: MUTE, fontWeight: 700, letterSpacing: "0.08em" }} className="uppercase mb-2">Derniers gagnants</div>
@@ -1233,6 +1253,26 @@ function HallOfFamePage({ nav }) {
                 <Trophy size={12} color={GOLD} />
                 <span style={{ fontSize: 12, fontWeight: 700, color: CHALK, ...body }}>{w.pseudo}</span>
                 <span style={{ fontSize: 14 }}>{w.challengeEmoji}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {topPlayers && topPlayers.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, color: MUTE, fontWeight: 700, letterSpacing: "0.08em" }} className="uppercase mb-2">Top joueurs</div>
+          <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+            {topPlayers.map((p, i) => (
+              <button
+                key={p.pseudo}
+                onClick={() => nav("profile", { user: p.pseudo })}
+                className="flex items-center gap-2 px-3 py-2 rounded-full flex-shrink-0"
+                style={{ background: i === 0 ? `${GOLD}22` : INK2, border: `1px solid ${i === 0 ? GOLD : "#FFFFFF18"}`, cursor: "pointer" }}
+              >
+                <span style={{ fontSize: 11, fontWeight: 800, color: i === 0 ? GOLD : MUTE }}>#{i + 1}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: CHALK, ...body }}>{p.pseudo}</span>
+                <span style={{ fontSize: 11, color: MUTE }}>{p.wins} duel{p.wins > 1 ? "s" : ""}</span>
               </button>
             ))}
           </div>
@@ -1484,7 +1524,7 @@ function parseHash() {
   if (parts.length === 0) return { view: "home" };
   if (parts[0] === "create") return { view: "create" };
   if (parts[0] === "admin") return { view: "admin" };
-  if (parts[0] === "profile") return { view: "profile" };
+  if (parts[0] === "profile") return { view: "profile", user: parts[1] ? decodeURIComponent(parts[1]) : null };
   if (parts[0] === "halloffame") return { view: "halloffame" };
   if (parts[0] === "browse") return { view: "browse", tab: parts[1] || "open" };
   if (parts[0] === "challenge" && parts[1]) {
@@ -1498,7 +1538,7 @@ function parseHash() {
 function routeToHash(view, params = {}) {
   if (view === "home") return "#/";
   if (view === "create") return "#/create";
-  if (view === "profile") return "#/profile";
+  if (view === "profile") return params.user ? `#/profile/${encodeURIComponent(params.user)}` : "#/profile";
   if (view === "halloffame") return "#/halloffame";
   if (view === "browse") return `#/browse/${params.tab || "open"}`;
   if (view === "challenge") return `#/challenge/${params.id}`;
@@ -1603,7 +1643,7 @@ export default function SprintlyApp() {
         {route.view === "join" && <JoinPage id={route.id} nav={nav} toast={toast} onPseudoMayHaveChanged={bumpRefresh} />}
         {route.view === "duels" && <DuelsListPage id={route.id} nav={nav} pseudo={pseudo} />}
         {route.view === "duel" && <DuelPage id={route.id} duelId={route.duelId} nav={nav} pseudo={pseudo} toast={toast} />}
-        {route.view === "profile" && <ProfilePage pseudo={pseudo} nav={nav} toast={toast} />}
+        {route.view === "profile" && <ProfilePage pseudo={pseudo} nav={nav} toast={toast} viewPseudo={route.user} />}
         {route.view === "halloffame" && <HallOfFamePage nav={nav} />}
       </div>
 
