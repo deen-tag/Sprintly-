@@ -250,10 +250,13 @@ function Toast({ message, onDone }) {
 function AccountBar({ nav, toast, refreshSignal, onAccountChange }) {
   const [session, setSession] = useState(undefined); // undefined = chargement
   const [myPseudo, setMyPseudoState] = useState(null);
-  const [step, setStep] = useState("idle"); // idle | email | sent | pseudo
+  const [step, setStep] = useState("idle"); // idle | auth | forgot | forgotSent | pseudo | recovery
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [pseudoDraft, setPseudoDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   const refresh = useCallback(async () => {
     const s = await api.getSession();
@@ -262,21 +265,69 @@ function AccountBar({ nav, toast, refreshSignal, onAccountChange }) {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh, refreshSignal]);
-  useEffect(() => api.onAuthStateChange(() => refresh()), [refresh]);
+  useEffect(() => api.onAuthStateChange((event) => {
+    // Lien de réinitialisation cliqué : on ouvre directement le champ
+    // "nouveau mot de passe" plutôt que de traiter ça comme une connexion normale.
+    if (event === "PASSWORD_RECOVERY") { setStep("recovery"); return; }
+    refresh();
+  }), [refresh]);
 
   // Juste après la connexion, si le compte n'a pas encore de pseudo, on le demande.
   useEffect(() => {
     if (session && myPseudo === null && step === "idle") setStep("pseudo");
   }, [session, myPseudo, step]);
 
-  const sendLink = async () => {
-    if (!email.trim() || !email.includes("@")) { toast("Ajoute une adresse email valide."); return; }
+  const submitAuth = async () => {
+    setError("");
+    if (!email.trim() || !email.includes("@")) { setError("Adresse email invalide."); return; }
+    if (!password || password.length < 6) { setError("6 caractères minimum."); return; }
     setBusy(true);
     try {
-      await api.sendMagicLink(email.trim());
-      setStep("sent");
+      await api.signInOrSignUp(email.trim(), password);
+      setPassword("");
+      setStep("idle");
     } catch (e) {
-      toast(e.message);
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    setBusy(true);
+    try {
+      await api.signInWithGoogle();
+    } catch (e) {
+      setError(e.message);
+      setBusy(false);
+    }
+  };
+
+  const sendReset = async () => {
+    setError("");
+    if (!email.trim() || !email.includes("@")) { setError("Adresse email invalide."); return; }
+    setBusy(true);
+    try {
+      await api.sendPasswordReset(email.trim());
+      setStep("forgotSent");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitNewPassword = async () => {
+    setError("");
+    if (!newPassword || newPassword.length < 6) { setError("6 caractères minimum."); return; }
+    setBusy(true);
+    try {
+      await api.updatePassword(newPassword);
+      setNewPassword("");
+      setStep("idle");
+      toast("Mot de passe mis à jour ✅");
+    } catch (e) {
+      setError(e.message);
     } finally {
       setBusy(false);
     }
@@ -299,40 +350,129 @@ function AccountBar({ nav, toast, refreshSignal, onAccountChange }) {
 
   if (session === undefined) return <div style={{ width: 90, height: 28 }} />;
 
-  if (step === "email") {
+  if (step === "recovery") {
     return (
       <div className="flex items-center gap-2">
         <input
-          autoFocus value={email} onChange={(e) => setEmail(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") sendLink(); }}
-          placeholder="ton email"
+          autoFocus type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") submitNewPassword(); }}
+          placeholder="nouveau mot de passe"
           className="rounded-full px-3 py-1.5 outline-none"
-          style={{ background: INK2, border: `1px solid ${LIME}55`, color: CHALK, fontSize: 12, width: 150, ...body }}
+          style={{ background: INK2, border: `1px solid ${LIME}55`, color: CHALK, fontSize: 12, width: 160, ...body }}
         />
-        <button onClick={sendLink} disabled={busy} className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: LIME }}>
+        <button onClick={submitNewPassword} disabled={busy} className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: LIME }}>
           <Check size={13} color={INK} />
         </button>
       </div>
     );
   }
 
-  if (step === "sent") {
-    return <div style={{ fontSize: 11, color: MUTE, ...body }}>✉️ Vérifie ta boîte mail</div>;
-  }
-
   if (step === "pseudo") {
     return (
-      <div className="flex items-center gap-2">
-        <input
-          autoFocus value={pseudoDraft} onChange={(e) => setPseudoDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") savePseudo(); }}
-          placeholder="ton pseudo"
-          className="rounded-full px-3 py-1.5 outline-none"
-          style={{ background: INK2, border: `1px solid ${LIME}55`, color: CHALK, fontSize: 12, width: 120, ...body }}
-        />
-        <button onClick={savePseudo} disabled={busy} className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: LIME }}>
-          <Check size={13} color={INK} />
-        </button>
+      <>
+        {/* Le header garde une taille stable pendant que la modal est ouverte */}
+        <div style={{ width: 90, height: 28 }} />
+        <div
+          className="fixed inset-0 flex items-center justify-center px-6 z-50"
+          style={{ background: "rgba(6,8,13,0.85)", backdropFilter: "blur(2px)" }}
+        >
+          <div className="w-full max-w-sm rounded-2xl p-5" style={{ background: INK2, border: `1px solid ${LIME}44` }}>
+            <div style={{ ...display, fontSize: 22, color: CHALK, marginBottom: 4 }}>CHOISIS TON PSEUDO</div>
+            <div style={{ fontSize: 12, color: MUTE, marginBottom: 16, lineHeight: 1.5, ...body }}>
+              C'est ce pseudo qui sera affiché publiquement sur les duels, les défis et le classement — pas ton email.
+            </div>
+            <input
+              autoFocus value={pseudoDraft} onChange={(e) => setPseudoDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") savePseudo(); }}
+              placeholder="ton pseudo"
+              className="w-full rounded-2xl px-4 py-3.5 outline-none mb-3"
+              style={{ background: INK, border: `1px solid ${LIME}55`, color: CHALK, fontSize: 14, ...body }}
+            />
+            <Button onClick={savePseudo} disabled={busy}>{busy ? "…" : "Valider"}</Button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (step === "auth" || step === "forgot" || step === "forgotSent") {
+    return (
+      <div className="relative">
+        <div
+          className="absolute right-0 top-2 rounded-2xl p-3 flex flex-col gap-2 z-50"
+          style={{ background: INK2, border: `1px solid ${LIME}33`, width: 230, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}
+        >
+          <div className="flex items-center justify-between mb-0.5">
+            <span style={{ fontSize: 11, color: MUTE, fontWeight: 700, ...body }} className="uppercase">
+              {step === "forgot" ? "Mot de passe oublié" : step === "forgotSent" ? "Email envoyé" : "Connexion"}
+            </span>
+            <button onClick={() => { setStep("idle"); setError(""); }} style={{ background: "transparent", border: "none", color: MUTE, cursor: "pointer" }}>
+              <X size={14} />
+            </button>
+          </div>
+
+          {step === "forgotSent" && (
+            <div style={{ fontSize: 12, color: MUTE, lineHeight: 1.4, ...body }}>
+              ✉️ Vérifie ta boîte mail, clique sur le lien pour choisir un nouveau mot de passe.
+            </div>
+          )}
+
+          {step === "forgot" && (
+            <>
+              <input
+                autoFocus value={email} onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") sendReset(); }}
+                placeholder="ton email"
+                className="rounded-xl px-3 py-2 outline-none"
+                style={{ background: INK, border: "1px solid #FFFFFF18", color: CHALK, fontSize: 12, ...body }}
+              />
+              {error && <div style={{ fontSize: 11, color: CORAL }}>{error}</div>}
+              <button onClick={sendReset} disabled={busy} className="rounded-xl py-2" style={{ background: LIME, color: INK, fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>
+                {busy ? "Envoi…" : "Recevoir le lien"}
+              </button>
+              <button onClick={() => { setStep("auth"); setError(""); }} style={{ fontSize: 11, color: MUTE, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+                Retour
+              </button>
+            </>
+          )}
+
+          {step === "auth" && (
+            <>
+              <button
+                onClick={handleGoogle} disabled={busy}
+                className="flex items-center justify-center gap-2 rounded-xl py-2.5"
+                style={{ background: CHALK, border: "none", cursor: "pointer" }}
+              >
+                <span style={{ fontSize: 12, fontWeight: 700, color: INK, ...body }}>Continuer avec Google</span>
+              </button>
+              <div className="flex items-center gap-2 my-0.5">
+                <div style={{ flex: 1, height: 1, background: "#FFFFFF14" }} />
+                <span style={{ fontSize: 10, color: MUTE }}>ou</span>
+                <div style={{ flex: 1, height: 1, background: "#FFFFFF14" }} />
+              </div>
+              <input
+                value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="ton email"
+                className="rounded-xl px-3 py-2 outline-none"
+                style={{ background: INK, border: "1px solid #FFFFFF18", color: CHALK, fontSize: 12, ...body }}
+              />
+              <input
+                type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") submitAuth(); }}
+                placeholder="mot de passe"
+                className="rounded-xl px-3 py-2 outline-none"
+                style={{ background: INK, border: "1px solid #FFFFFF18", color: CHALK, fontSize: 12, ...body }}
+              />
+              {error && <div style={{ fontSize: 11, color: CORAL }}>{error}</div>}
+              <button onClick={submitAuth} disabled={busy} className="rounded-xl py-2" style={{ background: LIME, color: INK, fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>
+                {busy ? "…" : "Continuer"}
+              </button>
+              <button onClick={() => { setStep("forgot"); setError(""); }} style={{ fontSize: 11, color: MUTE, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+                Mot de passe oublié ?
+              </button>
+            </>
+          )}
+        </div>
       </div>
     );
   }
@@ -340,7 +480,7 @@ function AccountBar({ nav, toast, refreshSignal, onAccountChange }) {
   if (!session) {
     return (
       <button
-        onClick={() => setStep("email")}
+        onClick={() => setStep("auth")}
         className="flex items-center gap-1.5 px-3.5 py-2 rounded-full"
         style={{ background: LIME, border: "none", cursor: "pointer" }}
       >
@@ -758,9 +898,11 @@ function JoinPage({ id, nav, toast, onPseudoMayHaveChanged }) {
   const [link, setLink] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [step, setStep] = useState("form"); // "form" | "email" | "sent"
+  const [error, setError] = useState("");
+  const [step, setStep] = useState("form"); // "form" | "auth"
   const [myPseudo, setMyPseudo] = useState(null);
 
   useEffect(() => {
@@ -788,38 +930,38 @@ function JoinPage({ id, nav, toast, onPseudoMayHaveChanged }) {
     const session = await api.getSession();
     if (session) { await doJoin(); return; }
     // Pas encore connecté : on garde le formulaire de côté et on ne demande
-    // l'email qu'à cette dernière étape, pour ne perdre personne en route.
+    // l'identification qu'à cette dernière étape, pour ne perdre personne en route.
     localStorage.setItem(PENDING_JOIN_KEY, JSON.stringify({ id, name: name.trim(), link: link.trim() }));
-    setStep("email");
+    setStep("auth");
   };
 
-  const sendLink = async () => {
-    if (!email.trim() || !email.includes("@")) { toast("Ajoute une adresse email valide."); return; }
+  const submitAuth = async () => {
+    setError("");
+    if (!email.trim() || !email.includes("@")) { setError("Adresse email invalide."); return; }
+    if (!password || password.length < 6) { setError("6 caractères minimum."); return; }
     setBusy(true);
     try {
-      await api.sendMagicLink(email.trim());
-      setStep("sent");
+      await api.signInOrSignUp(email.trim(), password);
+      // La connexion déclenche onAuthStateChange au niveau racine, qui
+      // termine automatiquement l'envoi de la participation en attente.
     } catch (e) {
-      toast(e.message);
-    } finally {
+      setError(e.message);
       setBusy(false);
     }
   };
 
-  if (step === "sent") {
-    return (
-      <div className="max-w-2xl mx-auto w-full px-5 pb-10 text-center">
-        <div style={{ fontSize: 44, marginBottom: 12 }}>✉️</div>
-        <div style={{ ...display, fontSize: 22, marginBottom: 8 }}>VÉRIFIE TA BOÎTE MAIL</div>
-        <div style={{ fontSize: 13, color: MUTE, lineHeight: 1.5 }}>
-          On t'a envoyé un lien à <span style={{ color: CHALK }}>{email}</span>. Clique dessus,
-          tu reviens ici et ta participation part automatiquement — pas besoin de tout retaper.
-        </div>
-      </div>
-    );
-  }
+  const handleGoogle = async () => {
+    setBusy(true);
+    try {
+      await api.signInWithGoogle();
+      // Redirection vers Google — la suite se passe au retour sur le site.
+    } catch (e) {
+      setError(e.message);
+      setBusy(false);
+    }
+  };
 
-  if (step === "email") {
+  if (step === "auth") {
     return (
       <div className="max-w-2xl mx-auto w-full px-5 pb-10">
         <button onClick={() => setStep("form")} className="flex items-center gap-2 mb-5" style={{ background: "transparent", border: "none", color: MUTE, cursor: "pointer", fontSize: 12 }}>
@@ -827,12 +969,40 @@ function JoinPage({ id, nav, toast, onPseudoMayHaveChanged }) {
         </button>
         <div style={{ ...display, fontSize: 22, marginBottom: 8 }}>DERNIÈRE ÉTAPE</div>
         <div style={{ fontSize: 13, color: MUTE, marginBottom: 20, lineHeight: 1.5 }}>
-          Ton email sert juste à retrouver tes défis et tes vidéos plus tard. Pas de mot de passe.
+          On garde ton compte lié à ton email, pour retrouver tes défis et tes vidéos plus tard.
         </div>
+
+        <button
+          onClick={handleGoogle} disabled={busy}
+          className="w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 mb-4"
+          style={{ background: CHALK, border: "none", cursor: "pointer" }}
+        >
+          <span style={{ fontSize: 14, fontWeight: 700, color: INK, ...body }}>Continuer avec Google</span>
+        </button>
+
+        <div className="flex items-center gap-2 mb-4">
+          <div style={{ flex: 1, height: 1, background: "#FFFFFF14" }} />
+          <span style={{ fontSize: 11, color: MUTE }}>ou avec un mot de passe</span>
+          <div style={{ flex: 1, height: 1, background: "#FFFFFF14" }} />
+        </div>
+
         <Field label="Ton email">
           <TextInput value={email} onChange={setEmail} placeholder="toi@email.com" mono />
         </Field>
-        <Button onClick={sendLink} disabled={busy}>{busy ? "Envoi…" : "Recevoir mon lien de connexion"}</Button>
+        <Field label="Mot de passe (6 caractères minimum)">
+          <input
+            type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") submitAuth(); }}
+            placeholder="••••••••"
+            className="w-full rounded-2xl px-4 py-3.5 outline-none"
+            style={{ background: INK2, border: "1px solid #FFFFFF18", color: CHALK, fontSize: 14, ...body }}
+          />
+        </Field>
+        {error && <div style={{ fontSize: 12, color: CORAL, marginBottom: 12 }}>{error}</div>}
+        <div style={{ fontSize: 11, color: MUTE, marginBottom: 12 }}>
+          Nouveau sur Sprintly ? Ce mot de passe créera ton compte automatiquement.
+        </div>
+        <Button onClick={submitAuth} disabled={busy}>{busy ? "Connexion…" : "Continuer"}</Button>
       </div>
     );
   }
@@ -1566,11 +1736,11 @@ export default function SprintlyApp() {
     return api.onAuthStateChange(sync);
   }, [refreshSignal]);
 
-  // Après un clic sur le lien magique reçu par email, l'utilisateur revient
+  // Après une connexion (email/mot de passe ou Google), l'utilisateur revient
   // ici déjà connecté : on termine automatiquement l'envoi de sa vidéo,
   // sans qu'il ait à retaper quoi que ce soit.
   useEffect(() => {
-    return api.onAuthStateChange(async (session) => {
+    return api.onAuthStateChange(async (event, session) => {
       if (!session) return;
       const raw = localStorage.getItem(PENDING_JOIN_KEY);
       if (!raw) return;
