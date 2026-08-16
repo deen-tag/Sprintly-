@@ -220,12 +220,6 @@ export async function loadTopWinners({ limit = 5 } = {}) {
   return (data || []).map((w) => ({ pseudo: w.winner_pseudo, wins: w.wins }));
 }
 
-export async function loadTopWinners({ limit = 10 } = {}) {
-  const { data, error } = await supabase.rpc("top_winners", { p_limit: limit });
-  if (error) throw new Error(friendlyError(error));
-  return (data || []).map((r) => ({ pseudo: r.pseudo, wins: r.wins }));
-}
-
 /* ---------------- Auth participant (lien magique) ---------------- */
 
 // Envoie un email avec un lien de connexion. En cliquant dessus, la personne
