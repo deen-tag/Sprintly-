@@ -182,6 +182,38 @@ export async function hasVoted(duelId) {
   return !!data;
 }
 
+export async function searchClosedChallenges({ query = "", limit = 10, offset = 0 } = {}) {
+  const { data, error } = await supabase.rpc("search_closed_challenges", {
+    p_query: query || null,
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error) throw new Error(friendlyError(error));
+  return (data || []).map((c) => ({
+    id: c.id,
+    emoji: c.emoji,
+    title: c.title,
+    participantsCount: c.participants_count || 0,
+    duelsCount: c.duels_count || 0,
+    createdAt: new Date(c.created_at).getTime(),
+  }));
+}
+
+export async function loadRecentWinners({ limit = 8 } = {}) {
+  const { data, error } = await supabase.rpc("recent_duel_winners", { p_limit: limit });
+  if (error) throw new Error(friendlyError(error));
+  return (data || [])
+    .filter((w) => w.winner_pseudo)
+    .map((w) => ({
+      duelId: w.duel_id,
+      pseudo: w.winner_pseudo,
+      challengeId: w.challenge_id,
+      challengeEmoji: w.challenge_emoji,
+      challengeTitle: w.challenge_title,
+      createdAt: new Date(w.created_at).getTime(),
+    }));
+}
+
 /* ---------------- Auth participant (lien magique) ---------------- */
 
 // Envoie un email avec un lien de connexion. En cliquant dessus, la personne
@@ -189,16 +221,9 @@ export async function hasVoted(duelId) {
 export async function sendMagicLink(email) {
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim(),
-    // On renvoie vers la racine du site (pas l'URL avec #join?id=..., pour éviter
-    // toute collision avec le routeur de l'app). La participation en attente est
-    // reprise via localStorage + onAuthStateChange, peu importe la page d'arrivée.
-    options: { emailRedirectTo: window.location.origin + window.location.pathname },
+    options: { emailRedirectTo: window.location.href },
   });
-  if (error) {
-    // On remonte le vrai message (ex: limite anti-spam de Supabase atteinte),
-    // plutôt qu'un message générique qui masque la vraie cause.
-    throw new Error(error.message || "Impossible d'envoyer l'email. Vérifie l'adresse.");
-  }
+  if (error) throw new Error("Impossible d'envoyer l'email. Vérifie l'adresse.");
 }
 
 export async function getSession() {
