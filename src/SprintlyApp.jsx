@@ -307,6 +307,9 @@ function requirePseudo(pseudo, setToast, openEditor) {
 
 function HomePage({ nav, toast }) {
   const [index, setIndex] = useState(null);
+  const [showAllOpen, setShowAllOpen] = useState(false);
+  const [showAllDrawn, setShowAllDrawn] = useState(false);
+  const [showClosed, setShowClosed] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -320,8 +323,26 @@ function HomePage({ nav, toast }) {
 
   if (index === null) return <Loading />;
 
-  const open = index.filter((c) => c.status === "open" || c.status === "drawn");
+  const drawn = index.filter((c) => c.status === "drawn");
+  const open = [...index.filter((c) => c.status === "open")].sort((a, b) => a.deadline - b.deadline);
   const closed = index.filter((c) => c.status === "closed");
+  const PAGE = 5;
+
+  const ChallengeCard = ({ c }) => (
+    <button
+      onClick={() => nav("challenge", { id: c.id })}
+      className="rounded-3xl p-4 relative overflow-hidden text-left"
+      style={{ background: `linear-gradient(135deg, ${CORAL}22, ${INK2} 60%, ${COBALT}22)`, border: `1px solid #FFFFFF14`, cursor: "pointer" }}
+    >
+      <div style={{ ...display, fontSize: 28, lineHeight: "0.95" }}>{c.emoji} {c.title}</div>
+      <div className="flex items-center gap-2 mt-3">
+        <Chip color={LIME}><Users size={11} className="inline mr-1" />{c.participantsCount} participants</Chip>
+        <Chip color={c.status === "drawn" ? GOLD : CHALK}>
+          {c.status === "open" ? fmtDelta(c.deadline) + " restant" : c.status === "drawn" ? "duels en cours" : "clôturé"}
+        </Chip>
+      </div>
+    </button>
+  );
 
   return (
     <div className="max-w-2xl mx-auto w-full pb-10">
@@ -329,34 +350,49 @@ function HomePage({ nav, toast }) {
         Relève le défi. Affronte quelqu'un. Prouve-le.
       </div>
 
-      <div className="px-5 mt-3">
+      {/* Duels en cours : la section la plus "chaude", en premier */}
+      {drawn.length > 0 && (
+        <div className="px-5 mt-3">
+          <div className="flex items-center justify-between mb-2">
+            <div style={{ color: GOLD, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em" }} className="uppercase flex items-center gap-1">
+              ⚔️ Duels en cours
+            </div>
+            <button onClick={refresh} className="flex items-center gap-1" style={{ background: "transparent", border: "none", color: MUTE, fontSize: 11, cursor: "pointer" }}>
+              <RefreshCw size={11} /> Actualiser
+            </button>
+          </div>
+          <div className="flex flex-col gap-3">
+            {(showAllDrawn ? drawn : drawn.slice(0, PAGE)).map((c) => <ChallengeCard key={c.id} c={c} />)}
+          </div>
+          {drawn.length > PAGE && (
+            <button onClick={() => setShowAllDrawn((v) => !v)} className="w-full text-center mt-2" style={{ fontSize: 12, color: MUTE, background: "transparent", border: "none", cursor: "pointer" }}>
+              {showAllDrawn ? "Voir moins" : `Voir tout (${drawn.length})`}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Défis ouverts : triés par deadline la plus proche */}
+      <div className="px-5 mt-6">
         <div className="flex items-center justify-between mb-2">
           <div style={{ color: LIME, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em" }} className="uppercase flex items-center gap-1">
-            <Flame size={12} /> Défis en cours
+            <Flame size={12} /> {drawn.length > 0 ? "Se terminent bientôt" : "Défis en cours"}
           </div>
-          <button onClick={refresh} className="flex items-center gap-1" style={{ background: "transparent", border: "none", color: MUTE, fontSize: 11, cursor: "pointer" }}>
-            <RefreshCw size={11} /> Actualiser
-          </button>
+          {drawn.length === 0 && (
+            <button onClick={refresh} className="flex items-center gap-1" style={{ background: "transparent", border: "none", color: MUTE, fontSize: 11, cursor: "pointer" }}>
+              <RefreshCw size={11} /> Actualiser
+            </button>
+          )}
         </div>
         <div className="flex flex-col gap-3">
           {open.length === 0 && <div style={{ fontSize: 13, color: MUTE }}>Aucun défi ouvert pour l'instant.</div>}
-          {open.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => nav("challenge", { id: c.id })}
-              className="rounded-3xl p-4 relative overflow-hidden text-left"
-              style={{ background: `linear-gradient(135deg, ${CORAL}22, ${INK2} 60%, ${COBALT}22)`, border: `1px solid #FFFFFF14`, cursor: "pointer" }}
-            >
-              <div style={{ ...display, fontSize: 28, lineHeight: "0.95" }}>{c.emoji} {c.title}</div>
-              <div className="flex items-center gap-2 mt-3">
-                <Chip color={LIME}><Users size={11} className="inline mr-1" />{c.participantsCount} participants</Chip>
-                <Chip color={c.status === "drawn" ? GOLD : CHALK}>
-                  {c.status === "open" ? fmtDelta(c.deadline) + " restant" : c.status === "drawn" ? "duels en cours" : "clôturé"}
-                </Chip>
-              </div>
-            </button>
-          ))}
+          {(showAllOpen ? open : open.slice(0, PAGE)).map((c) => <ChallengeCard key={c.id} c={c} />)}
         </div>
+        {open.length > PAGE && (
+          <button onClick={() => setShowAllOpen((v) => !v)} className="w-full text-center mt-2" style={{ fontSize: 12, color: MUTE, background: "transparent", border: "none", cursor: "pointer" }}>
+            {showAllOpen ? "Voir moins" : `Voir tous les défis (${open.length})`}
+          </button>
+        )}
       </div>
 
       <div className="px-5 mt-6">
@@ -366,15 +402,20 @@ function HomePage({ nav, toast }) {
 
       {closed.length > 0 && (
         <div className="px-5 mt-6">
-          <div style={{ color: MUTE, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em" }} className="mb-2 uppercase">Terminés</div>
-          <div className="flex flex-col gap-2">
-            {closed.map((c) => (
-              <button key={c.id} onClick={() => nav("challenge", { id: c.id })} className="rounded-2xl p-3 flex items-center justify-between text-left" style={{ background: INK2, border: "1px solid #FFFFFF10", cursor: "pointer" }}>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>{c.emoji} {c.title}</div>
-                <Trophy size={14} color={GOLD} />
-              </button>
-            ))}
-          </div>
+          <button onClick={() => setShowClosed((v) => !v)} className="w-full flex items-center justify-between" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
+            <div style={{ color: MUTE, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em" }} className="uppercase">Historique · Terminés ({closed.length})</div>
+            <span style={{ color: MUTE, fontSize: 11 }}>{showClosed ? "▲" : "▼"}</span>
+          </button>
+          {showClosed && (
+            <div className="flex flex-col gap-2 mt-2">
+              {closed.map((c) => (
+                <button key={c.id} onClick={() => nav("challenge", { id: c.id })} className="rounded-2xl p-3 flex items-center justify-between text-left" style={{ background: INK2, border: "1px solid #FFFFFF10", cursor: "pointer" }}>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{c.emoji} {c.title}</div>
+                  <Trophy size={14} color={GOLD} />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
