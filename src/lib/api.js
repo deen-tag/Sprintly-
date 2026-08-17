@@ -277,14 +277,22 @@ export async function signInOrSignUp(email, password) {
 export async function signInWithGoogle() {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: window.location.href },
+    // Important : pas window.location.href. L'app utilise déjà le # pour sa
+    // propre navigation (#/challenge?id=...). Si on renvoie l'URL complète
+    // avec ce # dedans, Supabase ajoute ensuite ?code=... après le #, où il
+    // devient invisible pour le navigateur (tout ce qui suit un # n'est
+    // jamais une vraie query string) : la connexion Google "réussit" côté
+    // Google mais échoue en silence côté site, sans erreur visible.
+    // window.location.origin (sans hash ni chemin) évite ce piège.
+    options: { redirectTo: window.location.origin },
   });
   if (error) throw new Error("Connexion Google indisponible pour le moment.");
 }
 
 export async function sendPasswordReset(email) {
   const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-    redirectTo: window.location.href,
+    // Même piège que pour Google : on ne renvoie pas le # de la route actuelle.
+    redirectTo: window.location.origin,
   });
   if (error) throw new Error("Impossible d'envoyer le lien de réinitialisation.");
 }
