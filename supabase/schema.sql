@@ -530,10 +530,12 @@ $$;
 revoke all on challenges, participants, duels, votes, users, trophies, admins from anon, authenticated;
 grant select on challenges, participants, duels, users, trophies to anon, authenticated;
 
+-- max_votes_per_ip() n'est PAS dans cette liste : elle n'est appelée que
+-- depuis cast_vote (security definer), jamais directement par le client.
 grant execute on function
   create_challenge, join_challenge, cast_vote, close_duel, draw_challenge,
   approve_challenge, reject_challenge, admin_delete_challenge, admin_list_challenges,
-  is_admin, has_voted, get_my_pseudo, set_my_pseudo, max_votes_per_ip,
+  is_admin, has_voted, get_my_pseudo, set_my_pseudo,
   recent_duel_winners, search_closed_challenges, top_winners, user_stats
 to anon, authenticated;
 
