@@ -742,7 +742,10 @@ function BrowsePage({ initialTab, nav, toast }) {
         {list.map((c) => (
           <button
             key={c.id}
-            onClick={() => nav("challenge", { id: c.id })}
+            // Depuis l'onglet "Duels" (tab "drawn"), on saute la page détail
+            // du défi et on va direct à la liste de ses duels : c'est ce que
+            // la personne est venue chercher, pas besoin de re-cliquer.
+            onClick={() => nav(tab === "drawn" ? "duels" : "challenge", { id: c.id })}
             className="rounded-3xl p-4 relative overflow-hidden text-left"
             style={{ background: `linear-gradient(135deg, ${CORAL}22, ${INK2} 60%, ${COBALT}22)`, border: `1px solid #FFFFFF14`, cursor: "pointer" }}
           >
@@ -870,6 +873,9 @@ function ChallengePage({ id, nav, pseudo, toast }) {
 
       <div className="mt-4 rounded-2xl p-4" style={{ background: INK2, border: "1px solid #FFFFFF10" }}>
         <div style={{ fontSize: 11, color: LIME, fontWeight: 700, letterSpacing: "0.06em" }} className="uppercase mb-2">Règles</div>
+        {ch.rules.length === 0 && (
+          <div style={{ fontSize: 13, color: MUTE }}>Aucune règle particulière pour ce défi — fais-toi plaisir.</div>
+        )}
         {ch.rules.map((r, i) => (
           <div key={i} className="flex items-start gap-2 mb-1.5">
             <Check size={14} color={LIME} style={{ marginTop: 2, flexShrink: 0 }} />
@@ -887,7 +893,9 @@ function ChallengePage({ id, nav, pseudo, toast }) {
           <div style={{ ...mono, fontSize: 20, color: ch.status === "open" ? LIME : MUTE }}>
             {ch.status === "open" ? fmtDelta(ch.deadline) : ch.status === "drawn" ? `${Math.ceil(ch.duels.length)} duels` : "terminé"}
           </div>
-          <div style={{ fontSize: 10, color: MUTE }} className="uppercase">{ch.status === "open" ? "avant clôture" : "statut"}</div>
+          <div style={{ fontSize: 10, color: MUTE }} className="uppercase">
+            {ch.status === "open" ? "avant clôture" : ch.status === "drawn" ? "en cours" : "statut"}
+          </div>
         </div>
       </div>
 
@@ -906,7 +914,9 @@ function ChallengePage({ id, nav, pseudo, toast }) {
           </Button>
         )}
         {(ch.status === "drawn" || ch.status === "closed") && (
-          <Button icon={Swords} onClick={() => nav("duels", { id })}>Voir les duels</Button>
+          <Button icon={Swords} onClick={() => nav("duels", { id })}>
+            {ch.duels.length > 0 ? `Voir les ${ch.duels.length} duels` : "Voir les duels"}
+          </Button>
         )}
       </div>
     </div>
