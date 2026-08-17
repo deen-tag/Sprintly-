@@ -1066,19 +1066,24 @@ function DuelsListPage({ id, nav, pseudo }) {
 
   return (
     <div className="max-w-2xl mx-auto w-full px-5 pb-10">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="rounded-2xl flex items-center justify-center flex-shrink-0" style={{ width: 52, height: 52, background: `linear-gradient(160deg, ${GOLD}33, ${INK2})`, border: `1px solid ${GOLD}44` }}>
-          <div style={{ ...display, fontSize: 24 }}>{ch.emoji}</div>
+      <div className="rounded-2xl p-4 mb-5" style={{ background: INK2, border: "1px solid #FFFFFF10" }}>
+        <div className="flex items-center gap-3">
+          <div className="rounded-2xl flex items-center justify-center flex-shrink-0" style={{ width: 52, height: 52, background: `linear-gradient(160deg, ${GOLD}33, ${INK} )`, border: `1px solid ${GOLD}44` }}>
+            <div style={{ ...display, fontSize: 24 }}>{ch.emoji}</div>
+          </div>
+          <div>
+            <div style={{ ...display, fontSize: 20, lineHeight: 1.1 }}>{ch.title}</div>
+            <div style={{ fontSize: 11, color: MUTE, marginTop: 2 }}>lancé par {ch.author}</div>
+          </div>
         </div>
-        <div>
-          <div style={{ ...display, fontSize: 20, lineHeight: 1.1 }}>{ch.title}</div>
-          <div style={{ fontSize: 11, color: MUTE, marginTop: 2 }}>lancé par {ch.author}</div>
+        {ch.description && (
+          <div style={{ fontSize: 13, color: MUTE, lineHeight: 1.5, marginTop: 10 }}>{ch.description}</div>
+        )}
+        <div className="flex items-center gap-1.5 mt-3">
+          <span style={{ ...mono, fontSize: 13, color: LIME, fontWeight: 700 }}>{ch.duels.length} duels</span>
+          <span style={{ fontSize: 12, color: MUTE }}>à voter · {ch.participants.length} participants</span>
         </div>
       </div>
-      {ch.description && (
-        <div style={{ fontSize: 13, color: MUTE, lineHeight: 1.5, marginBottom: 12 }}>{ch.description}</div>
-      )}
-      <div style={{ fontSize: 12, color: MUTE, marginBottom: 14 }}>{ch.participants.length} participants · {ch.duels.length} duels</div>
       <div className="flex flex-col gap-2">
         {ch.duels.map((d) => {
           const isMine = pseudo && (d.a?.pseudo === pseudo || d.b?.pseudo === pseudo);
