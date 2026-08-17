@@ -277,6 +277,13 @@ function AccountBar({ nav, toast, refreshSignal, onAccountChange }) {
     if (session && myPseudo === null && step === "idle") setStep("pseudo");
   }, [session, myPseudo, step]);
 
+  // Filet de sécurité : si un pseudo existe finalement (ex. la toute première
+  // vérification s'était faite trop tôt), on ferme la popup au lieu de
+  // laisser la personne bloquée dessus.
+  useEffect(() => {
+    if (step === "pseudo" && myPseudo) setStep("idle");
+  }, [step, myPseudo]);
+
   const submitAuth = async () => {
     setError("");
     if (!email.trim() || !email.includes("@")) { setError("Adresse email invalide."); return; }
@@ -342,7 +349,18 @@ function AccountBar({ nav, toast, refreshSignal, onAccountChange }) {
       setStep("idle");
       onAccountChange?.();
     } catch (e) {
-      toast(e.message);
+      // Le compte a en fait déjà un pseudo enregistré (souvent parce que la
+      // vérification au chargement s'est faite avant que la session soit
+      // prête) : au lieu de laisser la personne bloquée sur cet écran, on va
+      // chercher ce pseudo existant et on ferme la popup avec.
+      const existing = await api.getMyPseudo();
+      if (existing) {
+        setMyPseudoState(existing);
+        setStep("idle");
+        onAccountChange?.();
+      } else {
+        toast(e.message);
+      }
     } finally {
       setBusy(false);
     }
