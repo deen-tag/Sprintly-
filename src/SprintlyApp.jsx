@@ -1066,7 +1066,18 @@ function DuelsListPage({ id, nav, pseudo }) {
 
   return (
     <div className="max-w-2xl mx-auto w-full px-5 pb-10">
-      <div style={{ fontSize: 13, color: MUTE }}>{ch.title}</div>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="rounded-2xl flex items-center justify-center flex-shrink-0" style={{ width: 52, height: 52, background: `linear-gradient(160deg, ${GOLD}33, ${INK2})`, border: `1px solid ${GOLD}44` }}>
+          <div style={{ ...display, fontSize: 24 }}>{ch.emoji}</div>
+        </div>
+        <div>
+          <div style={{ ...display, fontSize: 20, lineHeight: 1.1 }}>{ch.title}</div>
+          <div style={{ fontSize: 11, color: MUTE, marginTop: 2 }}>lancé par {ch.author}</div>
+        </div>
+      </div>
+      {ch.description && (
+        <div style={{ fontSize: 13, color: MUTE, lineHeight: 1.5, marginBottom: 12 }}>{ch.description}</div>
+      )}
       <div style={{ fontSize: 12, color: MUTE, marginBottom: 14 }}>{ch.participants.length} participants · {ch.duels.length} duels</div>
       <div className="flex flex-col gap-2">
         {ch.duels.map((d) => {
